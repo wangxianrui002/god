@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 教材 PDF（2.3 MB，第三方版权材料，不属于本项目产出）
+# 练习出处与第 7 章原文已抄录在 README「一、练习出处」，PDF 本身不入库。
+# 确实想一起版本化的话，删掉下面这行即可。
+4-Python机器学习教程.pdf
+
+# 操作系统杂物
+Thumbs.db
+.DS_Store
