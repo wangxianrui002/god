@@ -16,7 +16,7 @@
 
 产出：
     results/tuning_results.csv
-    figures/fig08_validation_curve.png
+    figures/fig09_validation_curve.png
 """
 from __future__ import annotations
 
@@ -71,8 +71,10 @@ def search(est: Pipeline, grid: dict, X, y, label: str) -> dict:
     用 error_score='raise'：GridSearchCV 默认把拟合失败的组合记成 nan 继续跑，
     那样「失败」看起来只是「得分低」，会被当成一个普通候选。
     """
+    # n_jobs=-1：43,213 行的 KNN 每次预测都要算八千万次距离，串行跑一遍网格要几分钟。
+    # 并行只影响速度，不影响结果 —— 每一折的划分由 make_cv() 的随机种子固定。
     gs = GridSearchCV(est, grid, cv=make_cv(), scoring="r2",
-                      error_score="raise", n_jobs=1)
+                      error_score="raise", n_jobs=-1)
     gs.fit(X, y)
     print(f"  {label:34s} 最优 {gs.best_params_}   CV R² = {gs.best_score_:+.3f}"
           f"   （{len(gs.cv_results_['params'])} 组候选）")
@@ -80,7 +82,21 @@ def search(est: Pipeline, grid: dict, X, y, label: str) -> dict:
             "best_score": float(gs.best_score_), "search": gs}
 
 
-def fig08_curves(alpha_tr, alpha_te, k_tr, k_te) -> None:
+def overfit_caption(tr_mean: np.ndarray, te_mean: np.ndarray, low_label: str) -> str:
+    """按实测的训练-验证缝隙，给这张子图选一句**说得通**的副标题。
+
+    为什么不能写死：教科书式的「左边过拟合、右边欠拟合」在 Ridge 这张图上
+    不成立 —— 43,213 行喂 11 个数值特征，训练得分和验证得分整条曲线几乎重合，
+    最小的那个 alpha（惩罚几乎为零）也看不到过拟合。照抄教科书会让图在骗人：
+    读者会去找那道「缝」，而图上根本没有。所以先量缝隙，再决定怎么说。
+    """
+    gap = float(np.max(tr_mean - te_mean))
+    if gap < 0.02:
+        return f"{low_label}再小也不见过拟合 —— 两条线整条重合；惩罚太大才开始欠拟合"
+    return f"{low_label}太小 → 过拟合；太大 → 欠拟合"
+
+
+def fig09_curves(alpha_tr, alpha_te, k_tr, k_te) -> None:
     """两条验证曲线：Ridge 的 alpha、KNN 的 n_neighbors。"""
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter, NullFormatter
@@ -89,9 +105,9 @@ def fig08_curves(alpha_tr, alpha_te, k_tr, k_te) -> None:
 
     for ax, xs, tr, te, xlabel, note, logx in [
         (axes[0], ALPHAS, alpha_tr, alpha_te, "alpha（惩罚力度）",
-         "alpha 太小 → 过拟合；太大 → 欠拟合", True),
+         overfit_caption(alpha_tr.mean(axis=1), alpha_te.mean(axis=1), "alpha"), True),
         (axes[1], np.array(KS, dtype=float), k_tr, k_te, "n_neighbors（邻居数）",
-         "邻居太少 → 每个点自成一伙；太多 → 退化成全局平均", False),
+         overfit_caption(k_tr.mean(axis=1), k_te.mean(axis=1), "邻居数"), False),
     ]:
         for scores, color, name in [(tr, C_BLUE, "训练集得分"),
                                     (te, C_ORANGE, "验证集得分")]:
@@ -128,7 +144,7 @@ def fig08_curves(alpha_tr, alpha_te, k_tr, k_te) -> None:
     fig.suptitle("验证曲线：训练得分与验证得分随复杂度变化的走势"
                  "（阴影 = 折间标准差）", y=1.03, color=INK)
     fig.tight_layout()
-    fig.savefig(FIG / "fig08_validation_curve.png")
+    fig.savefig(FIG / "fig09_validation_curve.png")
     plt.close(fig)
 
 
@@ -210,28 +226,52 @@ def main() -> int:
 
     best_alpha = r1["best_params"]["model__alpha"]
     best_k = r3["best_params"]["model__n_neighbors"]
+
+    # 验证曲线上的几个关键读数，后面直接引用，不写死数字
+    a_tr, a_te = alpha_tr.mean(axis=1), alpha_te.mean(axis=1)
+    k_trm, k_te_m = k_tr.mean(axis=1), k_te.mean(axis=1)
+    a_best_i, k_best_i = int(np.argmax(a_te)), int(np.argmax(k_te_m))
+
+    # Ridge 这条曲线到底有没有过拟合，用实测缝隙回答，不靠教科书默认印象
+    a_gap = float(np.max(a_tr - a_te))
+    # 欠拟合从哪开始：验证得分跌破峰值 2 个百分点的第一个 alpha
+    under = np.where(a_te < a_te.max() - 0.02)[0]
+    a_under = ALPHAS[under[0]] if len(under) else None
+    k_gap = float(np.max(k_trm - k_te_m))
+
     print(f"""
 怎么读这些结果：
-  · Ridge 的最优 alpha = {best_alpha:.3g}，CV R² 从 {base_ridge:+.3f} 提到 {r1['best_score']:+.3f}，
-    提升 {(r1['best_score'] - base_ridge) * 100:.1f} 个百分点。调参确实有用 —— 但幅度有限，
-    因为天花板是数据本身决定的，不是参数。
-  · 多项式次数那一栏，最优是 {r2['best_params'].get('poly__degree')} 次 —— 也就是「不加多项式」。
-    把 alpha 和次数放在同一个网格里一起搜，网格自己选了最简单的那一档：
-    加了平方项之后维度上万、样本只有 306 个，多出来的维度没带来信息，只带来了噪声。
-  · 看左图的验证曲线：alpha 从 0.001 到 0.316，训练得分一直趴在 0.9 以上，
-    验证得分只有 0.36~0.43 —— 两条线之间的巨大缝隙就是过拟合。alpha 调大后
-    训练得分往下掉、验证得分先升后降，在 0.316 处取到最高，再往右两条线一起塌下去，
-    那就是欠拟合。教程 §2.4 讲的「欠拟合-恰好-过拟合」三段，在这张图上一眼可见。
-  · KNN 最优 k = {best_k}。看验证曲线：k=1 时训练得分是满分 1.0 —— 每个点最近的
-    邻居就是它自己，纯背答案。k 增大后训练得分下降、验证得分上升，两条线靠拢，
-    这才是学到了规律。这就是教程 §2.4 说的过拟合。
-  · 但 KNN 调到头也只有 {r3['best_score']:+.3f}，远不如线性的 {r1['best_score']:+.3f}。
-    原因是 143 个地段 one-hot 之后空间又高维又稀疏，「距离」在这种空间里没有意义 ——
-    这是维度灾难，调 k 治不好。""")
+  · Ridge 的最优 alpha = {best_alpha:.3g}，CV R² 从 {base_ridge:+.3f} 到 {r1['best_score']:+.3f}，
+    提升 {(r1['best_score'] - base_ridge) * 100:.1f} 个百分点 —— 也就是说，**调了等于没调**。
+    这不是说教程 §2.6.5 讲的交叉验证调参没意义，而是这份数据的瓶颈不在超参数上：
+    网格 25 组候选走完，最高分和最低分之间几乎没有区别。
+  · 左图是这次最值得看的一张。教程 §2.4 的教科书图景是「alpha 小 → 过拟合，
+    大 → 欠拟合」，但在这份数据上**只有右半边成立**：
+      - alpha 从 {ALPHAS[0]:g} 到约 {ALPHAS[a_best_i]:g}，训练得分和验证得分整条几乎重合，
+        最大缝隙只有 {a_gap:.4f}（训练 {a_tr[0]:.3f} vs 验证 {a_te[0]:.3f}）。
+        惩罚几乎为零时**也不见过拟合**，因为 43,213 行喂 11 个数值特征，
+        模型复杂度远小于样本量能支撑的规模。
+      - 唯一的边界在右边：alpha 超过 {a_under:g} 附近才开始塌，到 {ALPHAS[-1]:g} 掉到 {a_te[-1]:.3f}，
+        那才是欠拟合 —— 惩罚大到把真实信号也压掉了。
+    所以「过拟合」不是线性模型的固有病，是「模型复杂度 ÷ 样本量」不够小时的病。
+    这和 04 里 Ridge+Poly2 的结论翻转是同一件事的两面（见 README 4.3）。
+  · 多项式次数那一栏，网格选的是 {r2['best_params'].get('poly__degree')} 次 + alpha={r2['best_params'].get('model__alpha'):g}，
+    CV R² {r2['best_score']:+.4f}，比不加多项式高 {(r2['best_score'] - base_ridge) * 100:+.1f} 个百分点。
+    注意它比 04 里固定 alpha=1 的 Ridge+Poly2（+0.696）还高一点 ——
+    次数和 alpha 一起搜，网格自己找到了更好的组合。306 行时它选的是 degree=1。
+  · KNN 最优 k = {best_k}，CV R² {r3['best_score']:+.3f}，比 k=5 的 {base_knn:+.3f} 高
+    {(r3['best_score'] - base_knn) * 100:+.1f} 个百分点 —— 调参在 KNN 上是**真的有用**。
+    看右图：k=1 时训练得分是 {k_trm[0]:.3f}（满分）—— 每个点最近的邻居就是它自己，
+    纯背答案；验证得分只有 {k_te_m[0]:.3f}，缝隙 {k_gap:.3f}。这才是教程 §2.4 说的过拟合，
+    而且比 04 里用的 k=5 还严重。k 增大后训练得分下降、验证得分上升，两条线靠拢，
+    在 k={best_k} 处验证得分最高 {k_te_m[k_best_i]:.3f}。
+  · 但 KNN 调到头也只有 {r3['best_score']:+.3f}，仍比线性的 {r1['best_score']:+.3f} 低
+    {(r1['best_score'] - r3['best_score']) * 100:.1f} 个百分点。原因是类别列 one-hot 之后
+    空间维度高、样本稀，「距离」在这种空间里没有意义 —— 这是维度灾难，调 k 治不好。""")
 
-    fig08_curves(alpha_tr, alpha_te, k_tr, k_te)
+    fig09_curves(alpha_tr, alpha_te, k_tr, k_te)
     print(f"\n已写出：{RES / 'tuning_results.csv'}")
-    print("已生成：fig08_validation_curve.png")
+    print("已生成：fig09_validation_curve.png")
     return 0
 
 

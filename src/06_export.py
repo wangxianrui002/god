@@ -6,17 +6,29 @@
 Ridge 管线**拆成参数**导出（中位数、均值、标准差、one-hot 类别、系数、截距），
 再用 web/predict.js 在 JS 里重放同一套变换。因为模型是线性的，
 这个过程是**精确**的，不是近似 —— 但前提是两边算的必须是同一件事，
-所以本脚本最后会调 node 把 306 行数据整表跑一遍，逐行比对 JS 与 Python 的
-预测值，差值超过 1e-6 就报错。
+所以本脚本最后会调 node 把全部 43,213 行数据整表跑一遍，逐行比对 JS 与
+Python 的预测值，差值超过 1e-6 就报错。
+
+为什么网页里部署的是 Ridge 而不是 04 里 CV 得分更高的 Ridge+Poly2：
+    见 fit_final 的注释，差值只有 +0.018，但要拿平方项去接用户随便填的数
+    并不划算。
+
+关于数据量：43,213 行不可能整表塞进网页（散点图就是四万个 SVG 圆点）。
+所以这一节的思路是 —— **能精确的都在 Python 侧算准，只有散点才抽样**：
+    直方图          全部 43,213 行，每个区县一条，一个点都不抽
+    分箱中位数线     全部 43,213 行按十分位分箱
+    拟合线 / r 值    全部 43,213 行
+    散点            抽样约 1,400 行，按区县分层，页面上标明「抽样」
 
 产出：
-    web/model.json        模型参数（同时也是 node 校验的输入）
-    web/index.html        自包含网页（模板 + 内联的模型和数据）
+    web/model.json              模型参数（同时也是 node 校验的输入）
+    web/index.html              自包含网页（模板 + 内联的模型和数据）
     results/app_test_cases.csv  校验用的样例，人可读
 """
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -29,9 +41,9 @@ from sklearn.linear_model import Ridge
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 
-from common import (CATEGORICAL, NUMERIC, RES, ROOT, SEED, TARGET,
-                    guard_no_leakage, load_clean, make_cv, make_preprocessor,
-                    rmse)
+from common import (CATEGORICAL, NUMERIC, RAW_CSV, RES, ROOT, SEED, TARGET,
+                    WINDOW_YEARS, guard_no_leakage, load_clean, make_cv,
+                    make_preprocessor, rmse)
 
 WEB = ROOT / "web"
 TEMPLATE = WEB / "template.html"
@@ -41,12 +53,31 @@ MODEL_JSON = WEB / "model.json"
 ALPHAS = np.logspace(-3, 3, 25)
 TEST_SIZE = 0.2
 
-# 没有真实房源时的默认房源（望京一套两居，取自数据集中位数附近），
+# 直方图：单价 2 万 ~ 15.2 万，每箱 4 千。这个区间盖住了 99.9% 的房源。
+HIST_LO, HIST_BIN, HIST_N = 20_000, 4_000, 33
+
+# 散点抽样：按区县分层，大区县按比例抽，小区县保底 25 个点（否则门头沟只有 8 个点，
+# 图上那一片就空了，看着像模型没覆盖到）。
+SAMPLE_TOTAL, SAMPLE_MIN = 1_400, 25
+
+# 分箱中位数线的箱数（按分位数切，每箱样本量相同）
+BIN_Q = 10
+
+# 表单的取值范围。这不是数据本身的 min/max，是**给用户划的安全区**：
+# 线性模型在训练数据覆盖之外是外推，输入越极端越不可信，
+# 所以宁可把滑块卡在观测范围内，也不要给出一个看起来很精确的外推值。
+FORM_RANGES = {
+    "面积": (10, 400), "房龄": (0, 70), "总层数": (1, 50),
+    "梯户比": (0.0, 2.0), "关注人数": (0, 500),
+}
+
+# 没有真实房源时的默认房源（朝阳一套两居，取数据集中位数附近），
 # 让网页一打开就是「算过一次」的状态，而不是空表。
 DEFAULT_INPUT = {
-    "地段": "望京", "面积": 91.5, "房间数": 2, "厅数": 1,
-    "建成年": 2005, "总层数": 12, "关注人数": 15,
-    "装修": "精装", "形式": "板楼", "近地铁": 1, "南北通透": 1,
+    "区县": "朝阳", "面积": 89.0, "室": 2, "厅": 1, "卫": 1,
+    "总层数": 18, "房龄": 15, "梯户比": 0.3, "关注人数": 45,
+    "电梯": 1, "满五": 1, "近地铁": 1,
+    "楼层位置": "中", "装修": "精装", "建筑类型": "板楼", "建筑结构": "结构6",
 }
 
 
@@ -60,11 +91,17 @@ def jsonable(v):
 
 
 def fit_final(df: pd.DataFrame):
-    """在**全部** 306 行上重新拟合最终模型。
+    """在**全部** 43,213 行上重新拟合最终模型。
 
     04/05 里的指标（CV R²、留出集 R²）描述的是泛化能力，那是在训练集上评估的。
     真正拿去用的模型没理由只用 80% 的数据，所以这里用全量重拟合。
     两者不是同一个对象，README 里说清楚了。
+
+    这里部署的是 Ridge，不是 04 里 CV 更高的 Ridge+Poly2。差值是
+    CV R² +0.678 → +0.696、RMSE 13,668 → 13,306 元/㎡（约 0.6%），
+    但代价是把平方项交给用户随便填的数：二次函数在训练区间之外会掉头向下，
+    「关注人数填 500」这种输入能算出负单价。网页的输入域是开放的，
+    所以这一分精度不值得拿外推风险去换。实测见 README 第八节。
     """
     X = df[[c for c in df.columns if c != TARGET]]
     y = df[TARGET]
@@ -76,7 +113,7 @@ def fit_final(df: pd.DataFrame):
         return Pipeline([("pre", make_preprocessor()), ("model", Ridge())])
 
     gs = GridSearchCV(pipe(), {"model__alpha": ALPHAS}, cv=make_cv(),
-                      scoring="r2", error_score="raise", n_jobs=1)
+                      scoring="r2", error_score="raise", n_jobs=-1)
     gs.fit(X, y)
     alpha = float(gs.best_params_["model__alpha"])
 
@@ -146,56 +183,124 @@ def extract_model(pipe: Pipeline, alpha, cv_r2, holdout_r2, holdout_rmse, df) ->
     }
 
 
+def _eta2(df: pd.DataFrame, group: str, target: str) -> float:
+    """组间方差 / 总方差 —— 分组变量对目标的一元解释力。"""
+    grand = df[target].mean()
+    vc = df[group].value_counts()
+    ssb = sum(n * (df.loc[df[group] == k, target].mean() - grand) ** 2 for k, n in vc.items())
+    return float(ssb / ((df[target] - grand) ** 2).sum())
+
+
+def _provenance() -> dict:
+    """原始数据的规模与年份跨度。
+
+    页脚要写「原始共 N 条，跨 X–Y 年」，这两个数字得从数据里读出来 ——
+    写死在模板里的话，哪天换了数据集，页面说的就不是它自己画的那份数了。
+    只读 tradeTime 一列：全表 59 MB，usecols 让 pandas 跳过其余列的解析。
+    """
+    t = pd.read_csv(RAW_CSV, usecols=["tradeTime"], encoding="utf-8",
+                    low_memory=False)["tradeTime"].astype(str).str[:4]
+    years = pd.to_numeric(t, errors="coerce").dropna()
+    return {"raw_rows": int(len(t)), "raw_year_min": int(years.min()),
+            "raw_year_max": int(years.max()), "window_years": list(WINDOW_YEARS)}
+
+
+def _trend(x: pd.Series, y: pd.Series) -> dict:
+    m = x.notna() & y.notna()
+    k, b = np.polyfit(x[m], y[m], 1)
+    return {"slope": float(k), "intercept": float(b),
+            "r": float(np.corrcoef(x[m], y[m])[0, 1]), "n": int(m.sum())}
+
+
+def _binned(x: pd.Series, y: pd.Series, q: int = BIN_Q) -> dict:
+    """按分位数把 x 切成 q 箱，取每箱 y 的中位数。每箱样本量相同。
+
+    用分位数而不是等宽切，是因为面积、房龄都是右偏的：等宽切会让
+    「300㎡ 以上」那一箱只剩几十套，中位数抖得没法看。
+    """
+    m = x.notna() & y.notna()
+    xs, ys = x[m].to_numpy(dtype=float), y[m].to_numpy(dtype=float)
+    edges = np.unique(np.quantile(xs, np.linspace(0, 1, q + 1)))
+    idx = np.clip(np.digitize(xs, edges[1:-1]), 0, len(edges) - 2)
+    centers, meds, counts = [], [], []
+    for k in range(len(edges) - 1):
+        sel = idx == k
+        if not sel.any():
+            continue
+        # 横坐标取箱内的**中位面积**，不是箱边界的中点。
+        # 面积右偏得厉害：最右一箱是 (114, 1000]，中点 557 落在几乎没有房源的地方，
+        # 而该箱实际中位面积只有 170 左右 —— 用中点画线等于把这条线甩到空处。
+        # y 取的是中位数，x 也取中位数，两者才是同一件事的两个维度。
+        centers.append(float(np.median(xs[sel])))
+        meds.append(float(np.median(ys[sel])))
+        counts.append(int(sel.sum()))
+    # p01/p99 是给横轴用的，不是给数据用的：面积最大值 1,000㎡，
+    # 但 99% 的房源在 250㎡ 以内，按最大值画横轴会把绝大多数点挤成左边一坨。
+    return {"x": centers, "y": meds, "n": counts,
+            "lo": float(edges[0]), "hi": float(edges[-1]),
+            "p01": float(np.quantile(xs, 0.01)), "p99": float(np.quantile(xs, 0.99))}
+
+
 def extract_data(df: pd.DataFrame) -> dict:
-    """导出画图要用的 306 行原始数据 + 各地段统计。"""
+    """导出画图要用的统计量 + 一份分层抽样的散点。"""
     d = df.copy()
 
-    # 地段按房源数从多到少排，下拉框里常用的排前面
-    order = d["地段"].value_counts()
+    # 区县按房源数从多到少排，下拉框里常用的排前面
+    order = d["区县"].value_counts()
     districts = list(order.index)
     didx = {name: i for i, name in enumerate(districts)}
 
-    decors = sorted(d["装修"].dropna().unique().tolist())
-    forms = sorted(d["形式"].dropna().unique().tolist())
-    didx_dec = {v: i for i, v in enumerate(decors)}
-    didx_form = {v: i for i, v in enumerate(forms)}
+    # ---- 直方图：全部房源，一个点都不抽 ----
+    edges = HIST_LO + np.arange(HIST_N + 1) * HIST_BIN
+    assert d[TARGET].max() < edges[-1], "有房源超出直方图范围，最后一箱会少算"
+    hist_all, _ = np.histogram(d[TARGET], bins=edges)
+    hist_by = []
+    for name in districts:
+        h, _ = np.histogram(d.loc[d["区县"] == name, TARGET], bins=edges)
+        hist_by.append([int(v) for v in h])
 
-    rows = []
-    for _, r in d.iterrows():
-        rows.append([
-            jsonable(round(float(r["面积"]), 2)),
-            jsonable(r["房间数"]), jsonable(r["厅数"]), jsonable(r["总层数"]),
-            jsonable(r["建成年"]), jsonable(r["关注人数"]),
-            int(r["近地铁"]), int(r["南北通透"]),
-            didx_dec.get(r["装修"]), didx_form.get(r["形式"]),
-            didx[r["地段"]],
-            round(float(r[TARGET]), 1),
-        ])
+    stat = d.groupby("区县")[TARGET].agg(["median", "size"])
 
-    stat = d.groupby("地段")[TARGET].agg(["median", "size"])
+    # ---- 分层抽样：只有散点图用它 ----
+    parts = []
+    for name in districts:
+        sub = d[d["区县"] == name]
+        quota = max(SAMPLE_MIN, round(SAMPLE_TOTAL * len(sub) / len(d)))
+        step = max(1, len(sub) // quota)
+        parts.append(sub.iloc[::step])
+    sample = pd.concat(parts)
+    rows = [[round(float(r["面积"]), 1), jsonable(r["房龄"]),
+             didx[r["区县"]], round(float(r[TARGET]), 0)] for _, r in sample.iterrows()]
 
-    # 两条趋势线在 Python 侧算好，网页只负责画 —— 这样网页上的 r 值和
-    # README 里 fig02/fig05 的数字必然一致。
-    def trend(xs, ys):
-        m = xs.notna() & ys.notna()
-        k, b = np.polyfit(xs[m], ys[m], 1)
-        return {"slope": float(k), "intercept": float(b),
-                "r": float(np.corrcoef(xs[m], ys[m])[0, 1])}
+    # ---- 分箱中位数、拟合线：全部房源 ----
+    age_trend_by = []
+    for name in districts:
+        sub = d[d["区县"] == name]
+        age_trend_by.append(_trend(sub["房龄"], sub[TARGET]) if len(sub) >= 30 else None)
 
-    area_trend = trend(d["面积"], d[TARGET])
-    year_trend = trend(d["建成年"], d[TARGET])
+    cards = {c: sorted(d[c].dropna().unique().tolist())
+             for c in CATEGORICAL if c != "区县"}
 
     return {
-        "fields": ["面积", "房间数", "厅数", "总层数", "建成年", "关注人数",
-                   "近地铁", "南北通透", "装修", "形式", "地段", "单价"],
         "districts": districts,
-        "district_median": [round(float(stat.loc[n, "median"]), 0) for n in districts],
         "district_count": [int(stat.loc[n, "size"]) for n in districts],
-        "decors": decors,
-        "forms": forms,
-        "rows": rows,
-        "area_trend": area_trend,
-        "year_trend": year_trend,
+        "district_median": [float(round(stat.loc[n, "median"])) for n in districts],
+        "district_eta2": round(_eta2(d, "区县", TARGET), 4),
+        "provenance": _provenance(),
+        "hist": {"lo": HIST_LO, "bin": HIST_BIN, "all": [int(v) for v in hist_all],
+                 "by_district": hist_by},
+        "sample": rows,
+        "sample_note": f"抽样 {len(rows):,} 套（共 {len(d):,} 套，按区县分层）",
+        "area_bins": _binned(d["面积"], d[TARGET]),
+        "age_bins": _binned(d["房龄"], d[TARGET]),
+        "area_trend": _trend(d["面积"], d[TARGET]),
+        "age_trend": _trend(d["房龄"], d[TARGET]),
+        "age_trend_by_district": age_trend_by,
+        "cats": cards,
+        "rooms": sorted(int(v) for v in d["室"].dropna().unique()),
+        "halls": sorted(int(v) for v in d["厅"].dropna().unique()),
+        "baths": sorted(int(v) for v in d["卫"].dropna().unique()),
+        "ranges": {k: list(v) for k, v in FORM_RANGES.items()},
         "default_input": DEFAULT_INPUT,
     }
 
@@ -213,8 +318,55 @@ def render(model: dict, data: dict) -> None:
     print(f"  已生成 {INDEX.relative_to(ROOT)}  （{INDEX.stat().st_size / 1024:.0f} KB）")
 
 
-def verify_with_node(model: dict, data: dict, pipe: Pipeline, df: pd.DataFrame) -> bool:
-    """让 node 用 web/predict.js 把 306 行整表跑一遍，和 Python 逐行对答案。"""
+def verify_page_script() -> bool:
+    """用 node 把生成的 index.html 里的内联脚本编译一遍，只查语法。
+
+    为什么需要这一步：verify_with_node 验的是 web/predict.js 里的**预测函数**，
+    而页面脚本是另一份代码。页面脚本哪怕只是多写了一个右括号，预测函数照样
+    能通过全部 43,213 行的比对，网页打开却是一张空表 —— 这个坑实测踩过一次：
+    模板里多了个 `}`，标题、下拉框、数字全空，而 node 校验打印的是 ✓。
+    语法错误只需要编译、不需要 DOM，所以 vm.Script 就够，不必上 headless 浏览器。
+    """
+    node = shutil.which("node")
+    if node is None:
+        print("  [跳过] 没找到 node，无法检查页面脚本的语法。")
+        return False
+
+    html = INDEX.read_text(encoding="utf-8")
+    blocks = re.findall(r"<script>([\s\S]*?)</script>", html)
+    assert blocks, "index.html 里一个内联 <script> 都没有，模板的占位符可能没被替换"
+
+    js = f"""
+const vm = require('vm');
+const blocks = {json.dumps(blocks, ensure_ascii=False)};
+let bad = 0;
+blocks.forEach((code, i) => {{
+  try {{ new vm.Script(code, {{filename: 'script#' + i}}); }}
+  catch (e) {{ bad++; console.error('  脚本块 ' + i + ' 语法错误：' + e.message); }}
+}});
+console.log(JSON.stringify({{blocks: blocks.length, bad}}));
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        script = Path(tmp) / "syntax.js"
+        script.write_text(js, encoding="utf-8")
+        out = subprocess.run([node, str(script)], capture_output=True,
+                             text=True, encoding="utf-8")
+    if out.returncode != 0:
+        print("  [失败] node 语法检查脚本本身报错：")
+        print(out.stderr.strip()[:2000])
+        return False
+
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    if res["bad"]:
+        print(out.stderr.strip())
+        print(f"  页面脚本 {res['blocks']} 个块，{res['bad']} 个编译不过 —— 网页会是一张空表")
+        return False
+    print(f"  页面脚本 {res['blocks']} 个块全部通过语法检查  ✓")
+    return True
+
+
+def verify_with_node(model: dict, pipe: Pipeline, df: pd.DataFrame) -> bool:
+    """让 node 用 web/predict.js 把整表跑一遍，和 Python 逐行对答案。"""
     node = shutil.which("node")
     if node is None:
         print("  [跳过] 没找到 node，无法自动比对 JS 与 Python 的预测值。")
@@ -255,7 +407,7 @@ console.log(JSON.stringify({{worst, worstAt, worstRel, n: cases.length}}));
     # 已经贴着 float64 的精度极限了。网页把价格显示到整数位，所以这点差别
     # 连显示的最后一位都影响不到。
     ok = res["worst"] <= 1e-6
-    print(f"  JS 与 Python 逐行比对 {res['n']} 行：最大差值 {res['worst']:.3e} 元/㎡"
+    print(f"  JS 与 Python 逐行比对 {res['n']:,} 行：最大差值 {res['worst']:.3e} 元/㎡"
           f"（相对 {res['worstRel']:.1e}）{'  ✓ 一致' if ok else '  ✗ 超出容差'}")
     if not ok:
         print(f"    最大差值出现在第 {res['worstAt']} 行")
@@ -269,22 +421,26 @@ def main() -> int:
     print("=" * 68)
 
     df = load_clean()
-    data_df = extract_data(df)
+    data = extract_data(df)
 
-    print("\n拟合最终模型（全部 306 行）：")
+    n = len(df)
+    print(f"\n拟合最终模型（全部 {n:,} 行）：")
     pipe, alpha, cv_r2, holdout_r2, holdout_rmse = fit_final(df)
 
     model = extract_model(pipe, alpha, cv_r2, holdout_r2, holdout_rmse, df)
     MODEL_JSON.write_text(json.dumps(model, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print("\n导出数据与渲染网页：")
-    print(f"  {len(data_df['rows'])} 行房源、{len(data_df['districts'])} 个地段、"
-          f"{sum(len(c) for c in model['categories'])} 个 one-hot 列 → "
-          f"{len(model['coef'])} 个特征")
-    render(model, data_df)
+    print(f"  散点抽样 {len(data['sample']):,} 行（{data['sample_note']}）")
+    print(f"  直方图用全部 {n:,} 行，{len(data['hist']['all'])} 箱；"
+          f"{len(data['districts'])} 个区县各一条")
+    print(f"  {len(model['coef'])} 个特征系数")
+    render(model, data)
 
-    print("\n校验网页预测逻辑：")
-    verified = verify_with_node(model, data_df, pipe, df)
+    print("\n校验网页：")
+    syntax_ok = verify_page_script()
+    verified = verify_with_node(model, pipe, df)
+    assert syntax_ok, "页面脚本有语法错误，网页会是一张空表"
 
     # 留一份人可读的样例，方便手工核对
     X = df[[c for c in df.columns if c != TARGET]].head(12).copy()

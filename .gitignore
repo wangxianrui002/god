@@ -17,3 +17,8 @@ wheels/
 # 操作系统杂物
 Thumbs.db
 .DS_Store
+
+# 原始数据 59 MB（第三方采集，仅供学习使用），不入库。
+# 用 `uv run python src/01_download.py` 重新下载即可。
+# 清洗后的建模表（3.8 MB）仍然入库，这样 03~06 不下载也能跑。
+data/lianjia_bj_raw.csv

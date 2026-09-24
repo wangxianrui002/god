@@ -110,9 +110,9 @@ body{
 }
 
 /* ── 表单 ─────────────────────────────────────────────────────── */
-.form{display:flex;flex-direction:column;gap:14px}
+.form{display:flex;flex-direction:column;gap:13px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 label{font-size:12.5px;font-weight:500;color:var(--ink-2)}
 label .hint{color:var(--muted);font-weight:400}
 input,select{
@@ -123,11 +123,11 @@ input[type=number]{font-family:var(--font-mono);font-variant-numeric:tabular-num
 input:focus-visible,select:focus-visible,.toggle input:focus-visible+span{
   outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);
 }
-.toggles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .toggle{position:relative;display:block}
 .toggle input{position:absolute;opacity:0;width:0;height:0}
 .toggle span{
-  display:block;text-align:center;font-size:13px;padding:8px 6px;border-radius:8px;
+  display:block;text-align:center;font-size:12.5px;padding:8px 4px;border-radius:8px;
   border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);
   cursor:pointer;user-select:none;
 }
@@ -177,11 +177,20 @@ input:focus-visible,select:focus-visible,.toggle input:focus-visible+span{
 @media (max-width:900px){.charts{grid-template-columns:1fr}}
 .chart{grid-column:1/-1;margin:0;display:flex;flex-direction:column;gap:2px}
 .chart.half{grid-column:auto}
-figure.chart figcaption{margin-bottom:12px}
+figure.chart figcaption{margin-bottom:10px}
 figure.chart h3{margin:0;font-size:15px;font-weight:600}
 figure.chart figcaption p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
 .plot{margin-top:10px;min-width:0}
 .plot svg{display:block;max-width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;background:currentColor;flex:none}
+.legend i.sw{width:10px;height:10px;border-radius:3px}
+.legend .lg-all{color:var(--muted)}
+.legend .lg-dis{color:var(--accent)}
+.legend .lg-pred{color:var(--accent-2)}
+.legend .lg-dash{color:var(--ink-2)}
+.legend i.dashed{background:none;border-top:3px dashed currentColor;height:0}
 
 /* SVG 元素靠 CSS 上色：主题切换时不用重画 */
 .grid-line{stroke:var(--line-soft);stroke-width:1}
@@ -192,12 +201,13 @@ text.tick.x{text-anchor:middle}
 .tick-label{fill:var(--muted);font-family:var(--font-sans);font-size:11px}
 .dot{fill:var(--dot)}
 .dot-hi{fill:var(--accent)}
+.bar-all{fill:var(--dot);opacity:.55}
+.bar-dis{fill:var(--accent)}
 .pred-dot{fill:var(--accent-2);stroke:var(--surface);stroke-width:2}
 .pred-line{stroke:var(--accent-2);stroke-width:2}
-.pred-halo{fill:none;stroke:var(--accent-2);stroke-width:1.5;opacity:.45}
 .trend{stroke:var(--ink-2);stroke-width:1.8;fill:none}
+.trend-dash{stroke:var(--ink-2);stroke-width:1.6;fill:none;stroke-dasharray:5 4;opacity:.75}
 .trend-hi{stroke:var(--accent);stroke-width:2;fill:none}
-.trend-dash{stroke:var(--muted);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
 .median-line{stroke:var(--muted);stroke-width:1.3;stroke-dasharray:4 4;fill:none}
 text.note{fill:var(--ink-2);font-family:var(--font-sans);font-size:11.5px}
 text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;font-weight:600}
@@ -207,7 +217,7 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   margin-top:34px;padding-top:20px;border-top:1px solid var(--line);
   display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:var(--muted);
 }
-.foot p{margin:0;max-width:76ch}
+.foot p{margin:0;max-width:78ch}
 .foot b{color:var(--ink-2);font-weight:600}
 .foot code{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
 
@@ -221,7 +231,8 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   <header class="topbar">
     <div>
       <h1>北京二手房估价器</h1>
-      <p>链家 306 条挂牌记录 · 岭回归 <span id="model-name">Ridge</span> · 5 折交叉验证 R² <span id="model-r2">—</span></p>
+      <p>链家北京 <span id="n-rows">—</span> 条成交记录（2017 年）· 岭回归 <span id="model-name">Ridge</span>
+         · 5 折交叉验证 R² <span id="model-r2">—</span></p>
     </div>
     <div class="topstat">
       <span>平均误差</span><b id="model-rmse">—</b><span>元/㎡</span>
@@ -234,39 +245,60 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
       <h2 class="card-title">房源条件</h2>
 
       <div class="field">
-        <label for="f-地段">地段 <span class="hint" id="d-count"></span></label>
-        <select id="f-地段"></select>
+        <label for="f-区县">区县 <span class="hint" id="d-count"></span></label>
+        <select id="f-区县"></select>
       </div>
 
       <div class="field-row">
         <div class="field">
-          <label for="f-面积">面积 <span class="hint">㎡</span></label>
-          <input id="f-面积" type="number" step="0.1" min="10" max="400">
+          <label for="f-面积">建筑面积 <span class="hint">㎡</span></label>
+          <input id="f-面积" type="number" step="0.5">
         </div>
         <div class="field">
-          <label for="f-建成年">建成年</label>
-          <input id="f-建成年" type="number" step="1" min="1900" max="2026">
+          <label for="f-房龄">房龄 <span class="hint">年</span></label>
+          <input id="f-房龄" type="number" step="1">
         </div>
       </div>
 
       <div class="field-row">
-        <div class="field"><label for="f-房间数">房间数</label><select id="f-房间数"></select></div>
-        <div class="field"><label for="f-厅数">厅数</label><select id="f-厅数"></select></div>
+        <div class="field"><label for="f-室">房间数 <span class="hint">室</span></label>
+          <select id="f-室"></select></div>
+        <div class="field"><label for="f-厅">厅数</label>
+          <select id="f-厅"></select></div>
       </div>
 
       <div class="field-row">
-        <div class="field"><label for="f-总层数">总层数</label><input id="f-总层数" type="number" step="1" min="1" max="60"></div>
-        <div class="field"><label for="f-关注人数">关注人数</label><input id="f-关注人数" type="number" step="1" min="0" max="999"></div>
+        <div class="field"><label for="f-卫">卫生间数</label>
+          <select id="f-卫"></select></div>
+        <div class="field"><label for="f-总层数">楼栋总层数</label>
+          <input id="f-总层数" type="number" step="1"></div>
       </div>
 
       <div class="field-row">
-        <div class="field"><label for="f-装修">装修</label><select id="f-装修"></select></div>
-        <div class="field"><label for="f-形式">形式</label><select id="f-形式"></select></div>
+        <div class="field"><label for="f-梯户比">梯户比 <span class="hint">电梯数/户数</span></label>
+          <input id="f-梯户比" type="number" step="0.1"></div>
+        <div class="field"><label for="f-关注人数">挂牌关注人数</label>
+          <input id="f-关注人数" type="number" step="1"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field"><label for="f-楼层位置">楼层位置</label>
+          <select id="f-楼层位置"></select></div>
+        <div class="field"><label for="f-装修">装修</label>
+          <select id="f-装修"></select></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field"><label for="f-建筑类型">建筑类型</label>
+          <select id="f-建筑类型"></select></div>
+        <div class="field"><label for="f-建筑结构">建筑结构</label>
+          <select id="f-建筑结构"></select></div>
       </div>
 
       <div class="toggles">
+        <label class="toggle"><input id="f-电梯" type="checkbox"><span>有电梯</span></label>
+        <label class="toggle"><input id="f-满五" type="checkbox"><span>满五年</span></label>
         <label class="toggle"><input id="f-近地铁" type="checkbox"><span>近地铁</span></label>
-        <label class="toggle"><input id="f-南北通透" type="checkbox"><span>南北通透</span></label>
       </div>
 
       <button class="reset" type="button" id="reset">恢复示例房源</button>
@@ -283,10 +315,10 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
           <div class="chip">
             <h4>全市中位数</h4>
             <div class="v"><span id="c-all">—</span><em id="c-all-d">—</em></div>
-            <p>306 条挂牌记录的中位数</p>
+            <p>该年 <span id="c-all-n">—</span> 条成交记录的中位数</p>
           </div>
           <div class="chip">
-            <h4>该地段中位数</h4>
+            <h4>该区县中位数</h4>
             <div class="v"><span id="c-dis">—</span><em id="c-dis-d">—</em></div>
             <p id="c-dis-n">—</p>
           </div>
@@ -296,7 +328,7 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
           模型平均误差 <b>±<span id="r-rmse">—</span> 元/㎡</b>（RMSE），
           解释了约 <span id="r-expl">—</span> 的单价波动。
           也就是说这个数字是一万多元量级的估计，不是精确报价 ——
-          真实二手房价还要看学区、楼层朝向、房本年限这些本数据集没有采集的因素。
+          真实二手房价还要看学区、楼栋朝向、小区品质这些本数据集没有采集的因素。
         </p>
       </section>
 
@@ -304,27 +336,45 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
 
         <figure class="card chart">
           <figcaption>
-            <h3>这个价钱在该地段处于什么位置</h3>
-            <p>上排是全市 306 套挂牌，下排是该地段房源；橙色竖线是本次预测，虚线是全市中位数。
-               每排的上下位置只是把点摊开，不代表数值大小。</p>
+            <h3>这个价钱在市场上的位置</h3>
+            <p>两条都是真实分布，各自按自己的总量折算成百分比，所以形状可以直接比。
+               灰柱是全市，蓝柱是该区县，橙色竖线是本次预测。</p>
           </figcaption>
-          <div class="plot" id="plot-strip"></div>
+          <div class="plot" id="plot-hist"></div>
+          <div class="legend">
+            <span class="lg-all"><i class="sw"></i><em id="lg-all">全市</em></span>
+            <span class="lg-dis"><i class="sw"></i><em id="lg-dis">该区县</em></span>
+            <span class="lg-pred"><i></i>本次预测</span>
+            <span class="lg-dash"><i class="dashed"></i>全市中位数</span>
+          </div>
         </figure>
 
         <figure class="card chart half">
           <figcaption>
             <h3>面积 vs 单价</h3>
-            <p>拟合线几乎是平的 —— 单价是「每平米的价格」，面积在定义上就被除掉了</p>
+            <p>点越散说明面积越不解释单价 —— 单价是「每平米的价格」，
+               面积在定义上就被除掉了。蓝线是全部房源的十分位中位数。</p>
           </figcaption>
           <div class="plot" id="plot-area"></div>
+          <div class="legend">
+            <span class="lg-all"><i class="sw"></i><span id="lg-area-n">抽样房源</span></span>
+            <span class="lg-dis"><i class="sw"></i><span id="lg-area-d">该区县</span></span>
+            <span class="lg-dis"><i></i>分箱中位数</span>
+          </div>
         </figure>
 
         <figure class="card chart half">
           <figcaption>
-            <h3>建成年 vs 单价</h3>
-            <p>全市看越新越便宜，同地段内看越新越贵（辛普森悖论）</p>
+            <h3>房龄 vs 单价</h3>
+            <p>全市看是「越老越贵」（老房集中在核心城区），可拆到同一个区县里，
+               这个关系基本就消失了。换成别的区县看，方向还会翻过来 ——
+               这正是 03 里那张辛普森悖论图在页面上的现场版。</p>
           </figcaption>
-          <div class="plot" id="plot-year"></div>
+          <div class="plot" id="plot-age"></div>
+          <div class="legend">
+            <span class="lg-dash"><i class="dashed"></i><span id="lg-age-all">全市趋势</span></span>
+            <span class="lg-dis"><i></i><span id="lg-age-d">该区县趋势</span></span>
+          </div>
         </figure>
 
       </div>
@@ -332,14 +382,19 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   </div>
 
   <footer class="foot">
-    <p><b>数据</b>：链家北京二手房 306 条挂牌记录，由第三方公开采集，<b>仅供学习使用</b>。
-       挂牌价不等于成交价，且采集时间未知，与当前市场情况无关。</p>
-    <p><b>模型</b>：Ridge 回归，特征为地段／面积／房间数／厅数／总层数／建成年／关注人数／
-       近地铁／南北通透／装修／形式。地段对单价的方差解释率高达 89.7%，
-       但 143 个地段里有 123 个只有 3 套及以下房源，所以模型整体只能解释约四成的单价波动 ——
-       缺的是数据，不是算法。</p>
+    <p><b>数据</b>：链家网北京二手房<b>成交</b>记录 <span id="f-win">—</span> 年全年
+       <span id="f-rows">—</span> 条
+       （原始数据共 <span id="f-raw">—</span> 条，跨 <span id="f-span">—</span> 年；
+       只用这一年是因为期内市场水位一致，模型才是在解释「房子值多少」而不是「哪年卖的」）。
+       由第三方公开采集，<b>仅供学习使用</b>。</p>
+    <p><b>模型</b>：Ridge 回归，特征为区县／面积／房间数／厅数／卫生间数／楼栋总层数／楼层位置／
+       房龄／梯户比／挂牌关注人数／装修／建筑类型／建筑结构／电梯／满五／近地铁。
+       区县一个特征就解释了 <span id="f-eta">—</span> 的单价方差，但模型整体只解释约
+       <span id="f-expl">—</span> —— 缺的是数据，不是算法。</p>
+    <p><b>输入范围</b>：各输入框已限制在观测到的取值范围内。线性模型在训练数据覆盖之外
+       属于外推，越界越不可信，所以宁可卡住也不给一个看起来很精确的外推值。</p>
     <p><b>页面</b>：由 <code>src/06_export.py</code> 从训练好的模型生成，
-       预测逻辑与 Python 逐行比对通过（差值 &lt; 1e-6 元/㎡）。</p>
+       预测逻辑与 Python 逐行比对通过（全部 <span id="f-verified">—</span> 行，差值 &lt; 1e-6 元/㎡）。</p>
   </footer>
 
 </div>
@@ -348,15 +403,12 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
 <script>
 (function () {
   "use strict";
-  const MODEL = __MODEL_JSON__;
+  const M = __MODEL_JSON__;
   const DATA = __DATA_JSON__;
+  const HIST = DATA.hist;
   const NS = "http://www.w3.org/2000/svg";
-  const ROWS = DATA.rows;
-
-  const PRICE = 11, AREA = 0, YEAR = 4, DISTRICT = 10;
-  const ALL_PRICES = ROWS.map(r => r[PRICE]);
-  const Y_MIN = Math.floor(Math.min.apply(null, ALL_PRICES) / 5000) * 5000;
-  const Y_MAX = Math.ceil(Math.max.apply(null, ALL_PRICES) / 5000) * 5000;
+  const ROWS = DATA.sample;                 // 抽样散点：[面积, 房龄, 区县序号, 单价]
+  const AREA = 0, AGE = 1, DISTRICT = 2, PRICE = 3;
 
   const nf = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
   const fmt = v => nf.format(Math.round(v));
@@ -387,8 +439,11 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   }
 
   /* ── 表单 ───────────────────────────────────────────────────── */
-  const FIELDS = ["面积", "房间数", "厅数", "总层数", "建成年", "关注人数", "装修", "形式", "地段"];
-  const TOGGLES = ["近地铁", "南北通透"];
+  // 这张表把「哪些字段长什么样」集中在一处，和 model.json 里的列名一一对应。
+  const F_NUM = ["面积", "房龄", "总层数", "梯户比", "关注人数"];   // number 输入框
+  const F_PICK = ["室", "厅", "卫"];                               // 下拉，取值是整数
+  const F_CAT = ["区县", "楼层位置", "装修", "建筑类型", "建筑结构"];  // 下拉，取值是文本
+  const F_TOG = ["电梯", "满五", "近地铁"];                         // 开关，取值 0/1
 
   function fillSelect(id, values, labels) {
     const s = $(id);
@@ -397,255 +452,315 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
       // 必须用 document.createElement，不能用上面的 el()：
       // el() 走的是 createElementNS(SVG_NS, tag)，建出来的 <option> 不是
       // HTMLOptionElement，塞进 <select> 里浏览器根本不当选项渲染 ——
-      // 结果是每个下拉框都是空的，而 "共 143 个" 那类直接写 textContent 的文字
-      // 照常显示，把问题盖住了。
+      // 结果是每个下拉框都是空的。
       const o = document.createElement("option");
       o.value = v;
       o.textContent = labels ? labels[i] : v;
       s.appendChild(o);
     });
   }
+  // 数值输入框按 FORM_RANGES 卡范围：线性模型在训练区间外是外推，不值得鼓励
+  function clampInputs() {
+    F_NUM.forEach(k => {
+      const r = DATA.ranges[k];
+      if (!r) return;
+      $("f-" + k).min = r[0];
+      $("f-" + k).max = r[1];
+    });
+  }
   function initForm() {
+    const rows = fmt(M.meta.trained_on);
+    $("n-rows").textContent = rows;
+    $("f-rows").textContent = rows;
+    $("f-verified").textContent = rows;
+    $("c-all-n").textContent = rows;
+    const pv = DATA.provenance;
+    $("f-win").textContent = pv.window_years[0] === pv.window_years[1]
+      ? pv.window_years[0] : pv.window_years[0] + "–" + pv.window_years[1];
+    $("f-raw").textContent = fmt(pv.raw_rows);
+    $("f-span").textContent = pv.raw_year_min + "–" + pv.raw_year_max;
+    $("f-eta").textContent = (DATA.district_eta2 * 100).toFixed(1) + "%";
+    $("f-expl").textContent = Math.round(M.meta.holdout_r2 * 100) + "%";
+    $("model-name").textContent = M.meta.model;
+    $("model-r2").textContent = M.meta.cv_r2.toFixed(3);
+    $("model-rmse").textContent = fmt(M.meta.rmse);
+    $("r-rmse").textContent = fmt(M.meta.rmse);
+    $("r-expl").textContent = Math.round(M.meta.holdout_r2 * 100) + "%";
+
     $("d-count").textContent = "共 " + DATA.districts.length + " 个";
-    fillSelect("f-地段", DATA.districts,
-      DATA.districts.map((d, i) => d + " · " + DATA.district_count[i] + "套"));
-    fillSelect("f-房间数", [1, 2, 3, 4, 5, 6]);
-    fillSelect("f-厅数", [0, 1, 2, 3]);
-    fillSelect("f-装修", DATA.decors);
-    fillSelect("f-形式", DATA.forms);
-    $("model-name").textContent = MODEL.meta.model;
-    $("model-r2").textContent = MODEL.meta.cv_r2.toFixed(3);
-    $("model-rmse").textContent = fmt(MODEL.meta.rmse);
-    $("r-rmse").textContent = fmt(MODEL.meta.rmse);
-    $("r-expl").textContent = Math.round(MODEL.meta.holdout_r2 * 100) + "%";
+    $("lg-area-n").textContent = "抽样 " + ROWS.length + " 套";
+    fillSelect("f-区县", DATA.districts,
+      DATA.districts.map((d, i) => d + " · " + fmt(DATA.district_count[i]) + " 套"));
+    fillSelect("f-室", DATA.rooms);
+    fillSelect("f-厅", DATA.halls);
+    fillSelect("f-卫", DATA.baths);
+    F_CAT.slice(1).forEach(k => fillSelect("f-" + k, DATA.cats[k]));
+    clampInputs();
   }
   function writeForm(v) {
-    FIELDS.forEach(k => { $("f-" + k).value = v[k]; });
-    TOGGLES.forEach(k => { $("f-" + k).checked = !!v[k]; });
+    F_NUM.forEach(k => { $("f-" + k).value = v[k]; });
+    F_PICK.forEach(k => { $("f-" + k).value = v[k]; });
+    F_CAT.forEach(k => { $("f-" + k).value = v[k]; });
+    F_TOG.forEach(k => { $("f-" + k).checked = !!v[k]; });
   }
   function readForm() {
     const v = {};
-    FIELDS.forEach(k => {
-      const raw = $("f-" + k).value;
-      v[k] = (k === "地段" || k === "装修" || k === "形式") ? raw : Number(raw);
-    });
-    TOGGLES.forEach(k => { v[k] = $("f-" + k).checked ? 1 : 0; });
+    F_NUM.forEach(k => { v[k] = Number($("f-" + k).value); });
+    F_PICK.forEach(k => { v[k] = Number($("f-" + k).value); });
+    F_CAT.forEach(k => { v[k] = $("f-" + k).value; });
+    F_TOG.forEach(k => { v[k] = $("f-" + k).checked ? 1 : 0; });
     return v;
   }
 
-  /* ── 图表 ───────────────────────────────────────────────────── */
-  function axisY(svg, x0, y0, h, yMin, yMax, unit) {
-    ticks(yMin, yMax, 4).forEach(v => {
-      const y = y0 + h - (v - yMin) / (yMax - yMin) * h;
-      svg.appendChild(el("line", { class: "grid-line", x1: x0, x2: x0 + svg.__iw, y1: y, y2: y }));
-      svg.appendChild(el("text", { class: "tick y", x: x0 - 8, y: y + 3.5 }, fmt(v)));
-    });
-    svg.appendChild(el("text", { class: "tick-label", x: x0 - 8, y: y0 - 9, "text-anchor": "end" }, unit));
+  function districtIndex() {
+    const i = DATA.districts.indexOf(state["区县"]);
+    // indexOf 找不到会返回 -1，而 [-1] 是数组最后一个元素 —— 不拦就会
+    // 静默显示成别的区县的中位数。宁可当场炸掉。
+    if (i < 0) throw new Error("区县不在数据里：" + state["区县"]);
+    return i;
   }
 
-  // 图一：单价分布 —— 全市与该地段各占一条泳道，共用横轴。
-  // 纵向位置只是把点摊开的抖动，不编码任何数值，所以**刻意不画数值纵轴**：
-  // 之前这里画了一条「元/㎡」纵轴，纵坐标却是随机数，等于让人能从上往下读出一个
-  // 根本不存在的价格。泳道标签代替纵轴，说明每一排到底是什么。
-  function drawStrip() {
-    const W = $("plot-strip").clientWidth || 700, H = 208;
-    const M = { l: 62, r: 22, t: 42, b: 40 }, iw = W - M.l - M.r, ih = H - M.t - M.b;
-    const dIdx = DATA.districts.indexOf(state["地段"]);
-    const laneA = { label: M.t + 12, cy: M.t + ih * 0.28, half: 15 };  // 全市
-    const laneB = { label: M.t + ih * 0.55, cy: M.t + ih * 0.85, half: 15 };  // 该地段
-    mount("plot-strip", W, H, function (svg, W_) {
-      svg.__iw = iw;
-      const x = v => M.l + (v - Y_MIN) / (Y_MAX - Y_MIN) * iw;
+  /* ── 图一：单价分布 ───────────────────────────────────────────── */
+  // 全市和该区县各按自己的总量折算成百分比。不这么做的话，全市一万多条
+  // 对区县几百条，两个量级画在同一个计数轴上，区县那一条直接看不见。
+  function drawHist() {
+    const W = $("plot-hist").clientWidth || 700, H = 250;
+    const Mp = { l: 46, r: 20, t: 34, b: 42 }, iw = W - Mp.l - Mp.r, ih = H - Mp.t - Mp.b;
+    const di = districtIndex();
+    const all = HIST.all, dis = HIST.by_district[di];
+    const totAll = all.reduce((a, b) => a + b, 0), totDis = dis.reduce((a, b) => a + b, 0);
+    const pa = all.map(v => v / totAll * 100), pd = dis.map(v => v / totDis * 100);
+    const yMax = Math.max(Math.max.apply(null, pa), Math.max.apply(null, pd)) * 1.18;
+    const bw = iw / all.length;
 
-      ticks(Y_MIN, Y_MAX, 5).forEach(v => {
-        svg.appendChild(el("text", { class: "tick x", x: x(v), y: M.t + ih + 18 }, fmt(v)));
+    mount("plot-hist", W, H, function (svg, W_) {
+      const x = v => Mp.l + (v - HIST.lo) / (HIST.bin * all.length) * iw;
+      const y = v => Mp.t + ih - v / yMax * ih;
+
+      ticks(0, yMax, 4).forEach(v => {
+        svg.appendChild(el("line", { class: "grid-line", x1: Mp.l, x2: Mp.l + iw, y1: y(v), y2: y(v) }));
+        svg.appendChild(el("text", { class: "tick y", x: Mp.l - 8, y: y(v) + 3.5 }, v.toFixed(0) + "%"));
       });
-      svg.appendChild(el("text", { class: "tick-label", x: M.l + iw / 2, y: M.t + ih + 35, "text-anchor": "middle" }, "挂牌单价（元/㎡）"));
 
-      // 确定性伪随机抖动：同一个点每次重画都落在同一位置，不会跳
-      const band = i => ((i * 2654435761) >>> 0) % 1000 / 1000;
-      const lane = (keep, cls, r, L) => ROWS.forEach((row, i) => {
-        if ((row[DISTRICT] === dIdx) !== keep) return;
-        svg.appendChild(el("circle", {
-          class: cls, cx: x(row[PRICE]).toFixed(1),
-          cy: (L.cy - L.half + band(i) * L.half * 2).toFixed(1), r: r
+      // 全市画成淡色柱，该区县画成实色柱，两组并排：2px 的缝让它们不糊在一起
+      const gap = 2;
+      for (let i = 0; i < all.length; i++) {
+        const x0 = Mp.l + i * bw;
+        const wa = (bw - gap) / 2;
+        if (pa[i] > 0) svg.appendChild(el("rect", {
+          class: "bar-all", x: x0, y: y(pa[i]).toFixed(1), width: wa.toFixed(1),
+          height: (Mp.t + ih - y(pa[i])).toFixed(1), rx: 2
         }));
-      });
-      lane(false, "dot", 2.4, laneA);
-      lane(true, "dot-hi", 4.2, laneB);
-
-      svg.appendChild(el("text", { class: "tick-label", x: M.l, y: laneA.label },
-        "全市 " + ROWS.length + " 套"));
-      svg.appendChild(el("text", { class: "tick-label", x: M.l, y: laneB.label },
-        DATA.districts[dIdx] + " " + DATA.district_count[dIdx] + " 套"));
-
-      // 全市中位数参考线
-      const mx = x(MODEL.meta.median_all);
-      svg.appendChild(el("line", { class: "median-line", x1: mx, x2: mx, y1: M.t, y2: M.t + ih }));
-
-      // 预测值
-      const px = x(Math.max(Y_MIN, Math.min(Y_MAX, state.__pred)));
-      svg.appendChild(el("line", { class: "pred-line", x1: px, x2: px, y1: M.t - 8, y2: M.t + ih }));
-      svg.appendChild(el("text", {
-        class: "note-hi", x: px, y: M.t - 14, "text-anchor": px > W_ - 130 ? "end" : "start"
-      }, "预测 " + fmt(state.__pred)));
-
-      // 中位数标签朝预测标签的反方向展开，两条线挨得近时也不会叠在一起
-      svg.appendChild(el("text", {
-        class: "note", x: mx + (mx <= px ? -6 : 6), y: M.t - 14,
-        "text-anchor": mx <= px ? "end" : "start"
-      }, "全市中位数 " + fmt(MODEL.meta.median_all)));
-    });
-  }
-
-  function scatterBase(svg, W, H, xMin, xMax, xLabel, xUnitFmt, xTickCount) {
-    const M = { l: 62, r: 22, t: 30, b: 40 }, iw = W - M.l - M.r, ih = H - M.t - M.b;
-    svg.__iw = iw;
-    const ix = v => M.l + (v - xMin) / (xMax - xMin) * iw;
-    const iy = v => M.t + ih - (Math.max(Y_MIN, Math.min(Y_MAX, v)) - Y_MIN) / (Y_MAX - Y_MIN) * ih;
-    axisY(svg, M.l, M.t, ih, Y_MIN, Y_MAX, "元/㎡");
-    ticks(xMin, xMax, xTickCount || 6).forEach(v => {
-      svg.appendChild(el("text", { class: "tick x", x: ix(v), y: M.t + ih + 18 }, xUnitFmt(v)));
-    });
-    svg.appendChild(el("text", { class: "tick-label", x: M.l + iw / 2, y: M.t + ih + 35, "text-anchor": "middle" }, xLabel));
-    return { M, iw, ih, ix, iy };
-  }
-
-  /**
-   * 散点图。opt = { xOf, xMin, xMax, xLabel, xFmt, xTicks, lines, predX, notes }
-   * lines 里每条 { slope, intercept, cls } 画成一条贯穿的拟合线。
-   */
-  function drawScatter(id, opt) {
-    const W = $(id).clientWidth || 400, H = 250;
-    const dIdx = DATA.districts.indexOf(state["地段"]);
-    mount(id, W, H, function (svg, W_) {
-      const g = scatterBase(svg, W_, H, opt.xMin, opt.xMax, opt.xLabel, opt.xFmt, opt.xTicks);
-      const gx1 = g.ix(opt.xMin), gx2 = g.ix(opt.xMax);
-
-      (opt.lines || []).forEach(function (ln) {
-        svg.appendChild(el("line", {
-          class: ln.cls, x1: gx1, x2: gx2,
-          y1: g.iy(ln.intercept + ln.slope * opt.xMin),
-          y2: g.iy(ln.intercept + ln.slope * opt.xMax)
+        if (pd[i] > 0) svg.appendChild(el("rect", {
+          class: "bar-dis", x: (x0 + wa + gap).toFixed(1), y: y(pd[i]).toFixed(1),
+          width: wa.toFixed(1), height: (Mp.t + ih - y(pd[i])).toFixed(1), rx: 2
         }));
-      });
-      ROWS.forEach(r => {
-        const xv = opt.xOf(r); if (xv === null || xv === undefined) return;
-        if (r[DISTRICT] === dIdx) return;
-        svg.appendChild(el("circle", { class: "dot", cx: g.ix(xv).toFixed(1), cy: g.iy(r[PRICE]).toFixed(1), r: 2.6 }));
-      });
-      ROWS.forEach(r => {
-        const xv = opt.xOf(r); if (xv === null || xv === undefined) return;
-        if (r[DISTRICT] !== dIdx) return;
-        svg.appendChild(el("circle", { class: "dot-hi", cx: g.ix(xv).toFixed(1), cy: g.iy(r[PRICE]).toFixed(1), r: 4.2 }));
-      });
+      }
 
-      const px = g.ix(opt.predX), py = g.iy(state.__pred);
-      const flip = px > W_ - 120;
-      svg.appendChild(el("circle", { class: "pred-halo", cx: px.toFixed(1), cy: py.toFixed(1), r: 9 }));
-      svg.appendChild(el("circle", { class: "pred-dot", cx: px.toFixed(1), cy: py.toFixed(1), r: 5 }));
-      svg.appendChild(el("text", {
-        class: "note-hi", x: (px + (flip ? -13 : 13)).toFixed(1), y: (py - 10).toFixed(1),
-        "text-anchor": flip ? "end" : "start"
-      }, "预测 " + fmt(state.__pred)));
-
-      (opt.notes || []).forEach(function (t, i) {
-        svg.appendChild(el("text", { class: "note", x: g.M.l + 4, y: g.M.t + 15 + i * 15 }, t));
+      ticks(HIST.lo, HIST.lo + HIST.bin * all.length, 6).forEach(v => {
+        svg.appendChild(el("text", { class: "tick x", x: x(v), y: Mp.t + ih + 18 },
+          (v / 10000).toFixed(0) + "万"));
       });
+      svg.appendChild(el("text", { class: "tick-label", x: Mp.l + iw / 2, y: Mp.t + ih + 36,
+        "text-anchor": "middle" }, "成交单价（元/㎡）"));
+      svg.appendChild(el("text", { class: "tick-label", x: Mp.l - 8, y: Mp.t - 10,
+        "text-anchor": "end" }, "占比"));
+
+      const mx = x(M.meta.median_all);
+      svg.appendChild(el("line", { class: "median-line", x1: mx, x2: mx, y1: Mp.t, y2: Mp.t + ih }));
+
+      const px = Math.max(Mp.l, Math.min(Mp.l + iw, x(state.__pred)));
+      svg.appendChild(el("line", { class: "pred-line", x1: px, x2: px, y1: Mp.t - 8, y2: Mp.t + ih }));
+      const flip = px > W_ - 190;
+      svg.appendChild(el("text", { class: "note-hi", x: px + (flip ? -7 : 7), y: Mp.t - 14,
+        "text-anchor": flip ? "end" : "start" },
+        "预测 " + fmt(state.__pred) + " · 高于该区县 " + state.__pct.toFixed(0) + "% 的房源"));
+      svg.appendChild(el("text", { class: "note", x: mx + (mx <= px ? -6 : 6), y: Mp.t - 14,
+        "text-anchor": mx <= px ? "end" : "start" }, "全市中位数 " + fmt(M.meta.median_all)));
     });
   }
 
-  /** 本地段的「建成年 vs 单价」拟合 —— 样本不足 5 条就不给结论。 */
-  function districtTrend() {
-    const dIdx = DATA.districts.indexOf(state["地段"]);
-    const xs = [], ys = [];
-    ROWS.forEach(r => {
-      if (r[DISTRICT] !== dIdx || r[YEAR] === null) return;
-      xs.push(r[YEAR]); ys.push(r[PRICE]);
-    });
-    const n = xs.length;
-    if (n < 5) return null;
-    const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
-    let num = 0, den = 0, sx = 0, sy = 0;
-    for (let i = 0; i < n; i++) {
-      num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2;
-      sx += (xs[i] - mx) ** 2; sy += (ys[i] - my) ** 2;
+  /** 预测价在该区县分布里的百分位。用真实直方图算，不抽样。 */
+  function districtPercentile(pred) {
+    const arr = HIST.by_district[districtIndex()];
+    const total = arr.reduce((a, b) => a + b, 0);
+    if (!total) return 50;
+    const k = Math.floor((pred - HIST.lo) / HIST.bin);
+    let below = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (i < k) below += arr[i];
+      else if (i === k) below += arr[i] * 0.5;   // 落在这一箱里的算一半
     }
-    const slope = den ? num / den : 0;
-    // 和 numpy.corrcoef 同一个式子：协方差 / 两个标准差的积
-    const r = (sx > 0 && sy > 0) ? num / Math.sqrt(sx * sy) : 0;
-    return { n: n, slope: slope, intercept: my - slope * mx, r: r };
+    return Math.max(0, Math.min(100, below / total * 100));
+  }
+
+  /* ── 散点图底座 ─────────────────────────────────────────────── */
+  // Mp.t 留得比需要的多：两条说明文字摆在绘图区**上方**，不压在数据点上。
+  // 散点图的数据能顶到顶边，写在区内的说明必然被点盖住。
+  function scatterBase(svg, W, H, xMin, xMax, xLabel, xFmt, xTicks, yMin, yMax) {
+    const Mp = { l: 52, r: 18, t: 44, b: 42 }, iw = W - Mp.l - Mp.r, ih = H - Mp.t - Mp.b;
+    const ix = v => Mp.l + (v - xMin) / (xMax - xMin) * iw;
+    const iy = v => Mp.t + ih - (Math.max(yMin, Math.min(yMax, v)) - yMin) / (yMax - yMin) * ih;
+    ticks(yMin, yMax, 4).forEach(v => {
+      svg.appendChild(el("line", { class: "grid-line", x1: Mp.l, x2: Mp.l + iw, y1: iy(v), y2: iy(v) }));
+      svg.appendChild(el("text", { class: "tick y", x: Mp.l - 8, y: iy(v) + 3.5 },
+        (v / 10000).toFixed(1) + "万"));
+    });
+    ticks(xMin, xMax, xTicks).forEach(v => {
+      svg.appendChild(el("text", { class: "tick x", x: ix(v), y: Mp.t + ih + 18 }, xFmt(v)));
+    });
+    svg.appendChild(el("text", { class: "tick-label", x: Mp.l + iw / 2, y: Mp.t + ih + 36,
+      "text-anchor": "middle" }, xLabel));
+    svg.appendChild(el("text", { class: "tick-label", x: Mp.l - 8, y: Mp.t - 8,
+      "text-anchor": "end" }, "元/㎡"));
+    return { Mp, iw, ih, ix, iy };
+  }
+
+  /** 绘图区上方的说明文字，两行固定位置。 */
+  function noteLines(svg, g, l1, l2) {
+    svg.appendChild(el("text", { class: "note", x: g.Mp.l, y: g.Mp.t - 30 }, l1));
+    svg.appendChild(el("text", { class: "note", x: g.Mp.l, y: g.Mp.t - 15 }, l2));
+  }
+
+  /* ── 图二：面积 vs 单价 ───────────────────────────────────────── */
+  function drawArea() {
+    const W = $("plot-area").clientWidth || 400, H = 268;
+    const di = districtIndex();
+    const b = DATA.area_bins;
+    // 横轴只画到 99% 分位：面积最大 1,000㎡，按最大值铺满会把 99% 的房源
+    // 压成左边一条竖线。右端点本身也要在轴内，不然预测点会画到框外。
+    const xMin = 0;
+    const xMax = Math.ceil(Math.max(b.p99, Number(state["面积"])) / 10) * 10;
+    const yMin = 0, yMax = 160000;
+    const clip = v => Math.max(xMin + 2, Math.min(xMax - 2, v));
+
+    mount("plot-area", W, H, function (svg, W_) {
+      const g = scatterBase(svg, W_, H, xMin, xMax, "建筑面积（㎡，轴截至 99% 分位）",
+        v => v.toFixed(0), 5, yMin, yMax);
+
+      ROWS.forEach(r => {
+        if (r[DISTRICT] === di) return;
+        svg.appendChild(el("circle", { class: "dot", cx: g.ix(clip(r[AREA])).toFixed(1),
+          cy: g.iy(r[PRICE]).toFixed(1), r: 2.2 }));
+      });
+      ROWS.forEach(r => {
+        if (r[DISTRICT] !== di) return;
+        svg.appendChild(el("circle", { class: "dot-hi", cx: g.ix(clip(r[AREA])).toFixed(1),
+          cy: g.iy(r[PRICE]).toFixed(1), r: 2.8 }));
+      });
+
+      // 十分位中位数线：这条线是全部 43,213 套算出来的，不是从抽样点上画的。
+      // 只画落在横轴范围内的箱 —— 否则线会冲出绘图区画到右边距上。
+      const pts = b.x.map((xv, i) => [xv, b.y[i]]).filter(p => p[0] <= xMax);
+      svg.appendChild(el("path", {
+        class: "trend-hi", "stroke-linejoin": "round",
+        d: pts.map((p, i) => (i ? "L" : "M") + g.ix(p[0]).toFixed(1) + " " + g.iy(p[1]).toFixed(1)).join(" ")
+      }));
+
+      const px = g.ix(Number(state["面积"])), py = g.iy(state.__pred);
+      svg.appendChild(el("circle", { class: "pred-dot", cx: px.toFixed(1), cy: py.toFixed(1), r: 4.5 }));
+
+      noteLines(svg, g,
+        "全市 r = " + DATA.area_trend.r.toFixed(3) + " —— 面积几乎不能解释单价",
+        "蓝线：全部 " + fmt(M.meta.trained_on) + " 套按面积十分位的中位数");
+    });
+  }
+
+  /* ── 图三：房龄 vs 单价 ───────────────────────────────────────── */
+  // |r| 很小时不该给它一个方向性的说法：朝阳的 r 是 +0.046，照字面写成
+  // 「越老越贵」是过度解读 —— 0.046 解释的方差是 0.2%，等于没有关系。
+  function describeR(r) {
+    if (Math.abs(r) < 0.05) return "基本无关";
+    return r > 0 ? "越老越贵" : "越老越便宜";
+  }
+
+  function drawAge() {
+    const W = $("plot-age").clientWidth || 400, H = 268;
+    const di = districtIndex();
+    const dt = DATA.age_trend_by_district[di];
+    const b = DATA.age_bins;
+    const xMin = 0, xMax = Math.ceil(Math.max(b.p99, Number(state["房龄"])) / 5) * 5;
+    const yMin = 0, yMax = 160000;
+    const clip = v => Math.max(xMin + 0.5, Math.min(xMax - 0.5, v));
+
+    mount("plot-age", W, H, function (svg, W_) {
+      const g = scatterBase(svg, W_, H, xMin, xMax, "房龄（年，轴截至 99% 分位）",
+        v => v.toFixed(0), 6, yMin, yMax);
+
+      ROWS.forEach(r => {
+        if (r[AGE] === null) return;
+        svg.appendChild(el("circle", {
+          class: r[DISTRICT] === di ? "dot-hi" : "dot",
+          cx: g.ix(clip(r[AGE])).toFixed(1), cy: g.iy(r[PRICE]).toFixed(1),
+          r: r[DISTRICT] === di ? 2.8 : 2.2
+        }));
+      });
+
+      // 全市趋势（虚线）与本地趋势（蓝线）画同一个横跨区间，方向不同才看得清
+      const line = (t, cls) => svg.appendChild(el("line", {
+        class: cls, x1: g.ix(xMin), x2: g.ix(xMax),
+        y1: g.iy(t.intercept + t.slope * xMin), y2: g.iy(t.intercept + t.slope * xMax)
+      }));
+      line(DATA.age_trend, "trend-dash");
+      if (dt) line(dt, "trend-hi");
+
+      const px = g.ix(Number(state["房龄"])), py = g.iy(state.__pred);
+      svg.appendChild(el("circle", { class: "pred-dot", cx: px.toFixed(1), cy: py.toFixed(1), r: 4.5 }));
+
+      noteLines(svg, g,
+        "全市 r = " + DATA.age_trend.r.toFixed(3) + "（" + describeR(DATA.age_trend.r) + "）",
+        dt ? "该区县 r = " + dt.r.toFixed(3) + "（" + describeR(dt.r) + "，n=" + fmt(dt.n) + "）"
+           : "该区县房龄样本不足，不画本地趋势线");
+    });
   }
 
   /* ── 主流程 ─────────────────────────────────────────────────── */
   const state = Object.assign({}, DATA.default_input);
 
   function render() {
-    state.__pred = predictUnitPrice(MODEL, state);
+    state.__pred = predictUnitPrice(M, state);
+    state.__pct = districtPercentile(state.__pred);
     const pred = state.__pred;
-    const all = MODEL.meta.median_all;
+    const all = M.meta.median_all;
+
     $("r-price").textContent = fmt(pred);
-
     const pct = (pred - all) / all * 100;
-    const arrow = pct >= 0 ? "↑" : "↓";
-    $("r-sub").textContent = state["地段"] + " · " + state["面积"] + "㎡ · " +
-      state["房间数"] + "室" + state["厅数"] + "厅 · " + state["建成年"] + "年建";
+    $("r-sub").textContent = state["区县"] + " · " + state["面积"] + "㎡ · " +
+      state["室"] + "室" + state["厅"] + "厅" + state["卫"] + "卫 · " +
+      state["房龄"] + " 年房龄 · " + state["装修"];
     $("c-all").textContent = fmt(all);
-    $("c-all-d").textContent = arrow + " " + Math.abs(pct).toFixed(1) + "%";
+    $("c-all-d").textContent = (pct >= 0 ? "↑ " : "↓ ") + Math.abs(pct).toFixed(1) + "%";
 
-    // indexOf 找不到会返回 -1，而 [-1] 是数组最后一个元素 —— 不拦就会
-    // 静默显示成别的地段的中位数。宁可当场炸掉。
-    const di = DATA.districts.indexOf(state["地段"]);
-    if (di < 0) throw new Error("地段不在数据里：" + state["地段"]);
+    const di = districtIndex();
     const dmed = DATA.district_median[di], dn = DATA.district_count[di];
     $("c-dis").textContent = fmt(dmed);
     const dpct = (pred - dmed) / dmed * 100;
     $("c-dis-d").textContent = Math.abs(dpct) < 0.5 ? "基本持平"
       : (dpct >= 0 ? "↑ " : "↓ ") + Math.abs(dpct).toFixed(1) + "%";
-    $("c-dis-n").textContent = dn < 3
-      ? state["地段"] + "仅 " + dn + " 套房源，这个参考值很不稳"
-      : state["地段"] + " 的 " + dn + " 套挂牌房源";
+    $("c-dis-n").textContent = DATA.districts[di] + " 的 " + fmt(dn) + " 套成交房源";
 
-    drawStrip();
+    $("lg-all").textContent = "全市 " + fmt(M.meta.trained_on) + " 套 = 100%";
+    $("lg-dis").textContent = DATA.districts[di] + " " + fmt(dn) + " 套 = 100%";
+    $("lg-area-d").textContent = DATA.districts[di];
+    $("lg-age-all").textContent = "全市趋势 r = " + DATA.age_trend.r.toFixed(3);
+    const dt = DATA.age_trend_by_district[di];
+    $("lg-age-d").textContent = dt ? DATA.districts[di] + " 趋势 r = " + dt.r.toFixed(3)
+                                   : DATA.districts[di] + " 样本不足";
 
-    drawScatter("plot-area", {
-      xOf: r => r[AREA], xMin: AREA_MIN, xMax: AREA_MAX,
-      xLabel: "面积（㎡）", xFmt: v => v.toFixed(0), xTicks: 6,
-      lines: [{ slope: DATA.area_trend.slope, intercept: DATA.area_trend.intercept, cls: "trend" }],
-      predX: Number(state["面积"]),
-      notes: ["整体相关系数 r = " + DATA.area_trend.r.toFixed(3) + "（面积几乎不解释单价）"]
-    });
-
-    // 辛普森悖论：全市趋势（虚线，向下）与本地段趋势（蓝线）方向相反
-    const dt = districtTrend();
-    const yearLines = [{ slope: DATA.year_trend.slope, intercept: DATA.year_trend.intercept, cls: "trend-dash" }];
-    if (dt) yearLines.push({ slope: dt.slope, intercept: dt.intercept, cls: "trend-hi" });
-    drawScatter("plot-year", {
-      xOf: r => r[YEAR], xMin: YEAR_MIN, xMax: YEAR_MAX,
-      xLabel: "建成年", xFmt: v => v.toFixed(0), xTicks: 7,
-      lines: yearLines,
-      predX: Number(state["建成年"]),
-      notes: [
-        "虚线 全市  r = " + DATA.year_trend.r.toFixed(3) + "（越新越便宜）",
-        dt ? "蓝线 " + state["地段"] + "  r = " + dt.r.toFixed(3) +
-             "（" + (dt.slope >= 0 ? "越新越贵" : "越新越便宜") + "）"
-           : "该地段建成年不足 5 条，不画本地趋势线"
-      ]
-    });
+    drawHist();
+    drawArea();
+    drawAge();
   }
-
-  const AREA_MIN = Math.floor(Math.min.apply(null, ROWS.map(r => r[AREA])) / 10) * 10;
-  const AREA_MAX = Math.ceil(Math.max.apply(null, ROWS.map(r => r[AREA])) / 10) * 10;
-  const YEARS = ROWS.map(r => r[YEAR]).filter(v => v !== null);
-  const YEAR_MIN = Math.floor(Math.min.apply(null, YEARS) / 5) * 5;
-  const YEAR_MAX = Math.ceil(Math.max.apply(null, YEARS) / 5) * 5;
 
   initForm();
   writeForm(state);
 
   $("form").addEventListener("input", function () {
-    const v = readForm();
-    Object.assign(state, v);
+    Object.assign(state, readForm());
+    render();
+  });
+  $("form").addEventListener("change", function () {
+    Object.assign(state, readForm());
     render();
   });
   $("reset").addEventListener("click", function () {
@@ -657,7 +772,7 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   let rt = null;
   window.addEventListener("resize", function () {
     clearTimeout(rt);
-    rt = setTimeout(render, 140);   // render() 里已经会重画 plot-strip，不用单独再调
+    rt = setTimeout(render, 140);
   });
 
   render();
