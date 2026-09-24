@@ -393,7 +393,17 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   function fillSelect(id, values, labels) {
     const s = $(id);
     s.textContent = "";
-    values.forEach((v, i) => s.appendChild(el("option", { value: v }, labels ? labels[i] : v)));
+    values.forEach((v, i) => {
+      // 必须用 document.createElement，不能用上面的 el()：
+      // el() 走的是 createElementNS(SVG_NS, tag)，建出来的 <option> 不是
+      // HTMLOptionElement，塞进 <select> 里浏览器根本不当选项渲染 ——
+      // 结果是每个下拉框都是空的，而 "共 143 个" 那类直接写 textContent 的文字
+      // 照常显示，把问题盖住了。
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = labels ? labels[i] : v;
+      s.appendChild(o);
+    });
   }
   function initForm() {
     $("d-count").textContent = "共 " + DATA.districts.length + " 个";
@@ -583,7 +593,10 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
     $("c-all").textContent = fmt(all);
     $("c-all-d").textContent = arrow + " " + Math.abs(pct).toFixed(1) + "%";
 
+    // indexOf 找不到会返回 -1，而 [-1] 是数组最后一个元素 —— 不拦就会
+    // 静默显示成别的地段的中位数。宁可当场炸掉。
     const di = DATA.districts.indexOf(state["地段"]);
+    if (di < 0) throw new Error("地段不在数据里：" + state["地段"]);
     const dmed = DATA.district_median[di], dn = DATA.district_count[di];
     $("c-dis").textContent = fmt(dmed);
     const dpct = (pred - dmed) / dmed * 100;
@@ -644,7 +657,7 @@ text.note-hi{fill:var(--accent-2);font-family:var(--font-sans);font-size:11.5px;
   let rt = null;
   window.addEventListener("resize", function () {
     clearTimeout(rt);
-    rt = setTimeout(function () { drawStrip(); render(); }, 140);
+    rt = setTimeout(render, 140);   // render() 里已经会重画 plot-strip，不用单独再调
   });
 
   render();
