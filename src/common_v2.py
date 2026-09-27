@@ -21,7 +21,7 @@ import re
 import numpy as np
 import pandas as pd
 from pandas.api import types as pdt
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -72,11 +72,12 @@ AREA_MIN_V2, AREA_MAX_V2 = 10.0, 1_000.0
 NUMERIC = ["面积", "室", "厅", "卫", "总层数", "房龄", "关注人数", "带看30天",
            "近地铁", "满五", "近公园"]
 
-# 类别特征。板块 270 个取值、朝向 11 个、环线 6 个（有序）。
+# 类别特征。清洗后的取值数：板块 129（合并稀有类别之前 270）、
+# 朝向 11、装修 4、楼层位置 4、环线 6（有序）。实测 η² 见 README §13.6。
 CATEGORICAL = ["朝向", "楼层位置", "装修", "板块", "环线"]
 
 # 小区：**只用于 GroupKFold 分组，绝不进特征**。
-# 6,852 个小区、平均 10.8 套；当特征用等于 target encoding ——
+# 6,833 个小区、平均 10.8 套；当特征用等于 target encoding ——
 # 「这个小区的均价」天然含本行信息，与第一版的 communityAverage 是同一个陷阱。
 GROUP_COL = "小区"
 
@@ -232,29 +233,67 @@ def build_features(raw: pd.DataFrame):
 CAT_IDX = list(range(len(NUMERIC), len(NUMERIC) + len(CATEGORICAL)))
 
 
-class ToCategory(BaseEstimator, TransformerMixin):
-    """把类别列转成 pandas category dtype。
+class GbdtFrame(TransformerMixin, BaseEstimator):
+    """GBDT 的预处理：逐列填补，并把类别列转成 pandas ``category`` dtype。
 
-    三个 GBDT 库对类别特征的约定各不相同，实测下来 **pandas category dtype**
-    是唯一三家通吃的写法（LGBM 自动识别、XGBoost 要 enable_categorical=True、
-    CatBoost 按索引声明 cat_features）。写在 Pipeline 里，三种模型就能共用同一套预处理。
+    **为什么不用 ColumnTransformer**：它把各列 hstack 成一个数组，float64 与 object
+    混在一起会被统一提升成 object —— 连数值列也变成对象类型。三个 GBDT 库拿到这种
+    数组，轻则把数字当字符串处理，重则直接报错。这里逐列构造 DataFrame，dtype 才守得住。
+
+    **为什么是 category dtype**：三个库对类别特征的约定各不相同，实测下来
+    pandas category 是唯一三家通吃的写法（LightGBM 自动识别、XGBoost 要
+    ``enable_categorical=True``、CatBoost 按索引声明 ``cat_features``）。
+    写成同一个 Transformer，三种模型就能共用同一套预处理。
+
+    注意 ``transform`` 里必须用 ``X[c] = ...`` 这种**标签赋值**。写成
+    ``X.iloc[:, i] = X.iloc[:, i].astype("category")`` 是无效的：iloc 赋值是
+    就地写入已有的 object 块，pandas 会把 Categorical 还原成原值，dtype 一点没变，
+    而且不报任何错 —— 这个坑真的踩过一次。
+
+    **类别表必须在 fit 时定死**，这是第二个踩过的坑。写成
+    ``s.astype("category")`` 的话，类别表是按**当前这一份数据**现推的：
+    训练折推一套、验证折又推另一套，顺序未必相同。三个库里
+    XGBoost 是按 ``cat.codes``（类别在类别表里的**下标**）读数据的，
+    下标一错位，整列的含义就全变了 —— 它不报错，只是把「南北」当成「东」，
+    于是 GroupKFold 的 R² 掉成负数。症状是「换了个 CV 方案模型就崩了」，
+    根因却在编码。LightGBM 和 CatBoost 按类别**取值**处理，所以没事。
     """
 
-    def __init__(self, n_numeric: int = len(NUMERIC)):
-        self.n_numeric = n_numeric
+    def __init__(self, numeric: list[str] | None = None,
+                 categorical: list[str] | None = None):
+        self.numeric = NUMERIC if numeric is None else numeric
+        self.categorical = CATEGORICAL if categorical is None else categorical
 
     def fit(self, X, y=None):
-        self.columns_ = list(X.columns) if hasattr(X, "columns") else None
+        X = pd.DataFrame(X)
+        self.num_fill_ = {c: pd.to_numeric(X[c], errors="coerce").median()
+                          for c in self.numeric}
+        self.cat_fill_, self.categories_ = {}, {}
+        for c in self.categorical:
+            m = X[c].astype("string").mode()
+            fill = m.iloc[0] if len(m) else pd.NA
+            self.cat_fill_[c] = fill
+            # 类别表在 fit 时**定死**，transform 不再重新推断。理由见类文档。
+            vc = X[c].astype("string").where(lambda s: s.notna(), fill).value_counts()
+            self.categories_[c] = list(vc.index)
         return self
 
     def transform(self, X):
         X = pd.DataFrame(X)
-        for i in range(self.n_numeric, X.shape[1]):
-            X.iloc[:, i] = X.iloc[:, i].astype("category")
-        return X
+        out = pd.DataFrame(index=X.index)
+        for c in self.numeric:
+            v = pd.to_numeric(X[c], errors="coerce")
+            out[c] = v.fillna(self.num_fill_[c]).astype("float64")
+        for c in self.categorical:
+            s = X[c].astype("string")
+            s = s.where(s.notna(), self.cat_fill_[c])
+            # 固定类别表：验证折里没在训练折出现过的取值 → NaN（按缺失处理），
+            # 而不是让 pandas 按本折数据另排一套类别序号
+            out[c] = pd.Categorical(s, categories=self.categories_[c])
+        return out
 
 
-def make_preprocessor(one_hot: bool = True, scale_numeric: bool = True):
+def make_preprocessor(one_hot: bool = True):
     """两种预处理，对应两类模型：
 
     * ``one_hot=True``  —— 给线性模型（线性回归 / 岭回归 / KNN）。
@@ -274,18 +313,63 @@ def make_preprocessor(one_hot: bool = True, scale_numeric: bool = True):
                               ("oh", OneHotEncoder(handle_unknown="ignore",
                                                    sparse_output=False))]), CATEGORICAL),
         ])
-    return Pipeline([
-        ("imp", ColumnTransformer([
-            ("num", SimpleImputer(strategy="median"), NUMERIC),
-            ("cat", SimpleImputer(strategy="most_frequent"), CATEGORICAL),
-        ])),
-        ("tocat", ToCategory()),
-    ])
+    return GbdtFrame()
 
 
 # --------------------------------------------------------------------------
 # 模型
 # --------------------------------------------------------------------------
+class CatBoostCategorical(RegressorMixin, BaseEstimator):
+    """CatBoost，但把 ``cat_features`` 挪到 ``fit`` 里声明。
+
+    注意继承顺序是 ``(RegressorMixin, BaseEstimator)`` —— **mixin 必须写在前面**。
+    写成 ``(BaseEstimator, RegressorMixin)`` 时 ``BaseEstimator.__sklearn_tags__``
+    排在 MRO 前面且不调用 ``super()``，于是 ``RegressorMixin`` 那版永远轮不到，
+    ``estimator_type`` 一直是 ``None``，``is_regressor()`` 返回 False，
+    堆叠集成会拒绝它：「The estimator Pipeline should be a regressor.」
+    同样报错信息完全指不到继承顺序上，只能靠 ``is_regressor`` 逐个体检才看得出来。
+
+    **为什么不能直接在构造器里传**：``CatBoostRegressor.get_params()`` 返回的
+    ``cat_features`` 是列表的**副本**，不是传进去的那个对象；而 ``sklearn.clone``
+    有一条硬断言 —— 构造器必须把参数原样存回来（``param1 is not param2`` 就报错）。
+    clone 是 ``cross_val_score`` 和 ``StackingRegressor`` 每次都要走的路径，
+    所以只要做交叉验证就一定会撞上：
+
+        RuntimeError: Cannot clone object CatBoostRegressor(...),
+        as the constructor either does not set or modifies parameter cat_features
+
+    把声明挪进 ``fit``，构造器参数就只剩普通标量，clone 自然通过。
+    另有一个实测事实：CatBoost **不会**从 pandas category dtype 自动识别类别列，
+    不声明就直接报错（"has dtype 'category' but is not in cat_features list"），
+    所以这一步不能省。
+
+    这里的参数都是显式列出的，不能用 ``**kwargs`` —— ``get_params`` 只认
+    ``__init__`` 的具名参数，写成 ``**kwargs`` 的话 clone 出来的新对象会把
+    ``n_estimators`` 之类的设置全丢掉，而且不报错。
+    """
+
+    def __init__(self, cat_features=None, n_estimators: int = 400,
+                 learning_rate: float = 0.06, random_seed: int = SEED,
+                 verbose: int = 0):
+        self.cat_features = cat_features
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.random_seed = random_seed
+        self.verbose = verbose
+
+    def fit(self, X, y):
+        from catboost import CatBoostRegressor
+        self.model_ = CatBoostRegressor(
+            cat_features=self.cat_features, n_estimators=self.n_estimators,
+            learning_rate=self.learning_rate, random_seed=self.random_seed,
+            verbose=self.verbose)
+        self.model_.fit(X, y)
+        return self
+
+    def predict(self, X):
+        return self.model_.predict(X)
+
+
 def make_models() -> dict:
     """第一版讲过的线性模型（做对照）+ 文献推荐的 GBDT 家族 + 堆叠集成。
 
@@ -293,36 +377,51 @@ def make_models() -> dict:
     否则「哪个模型好」和「谁调得更狠」两件事会混在一起，比出来的结果不可信。
     """
     from sklearn.dummy import DummyRegressor
-    from sklearn.ensemble import HistGradientBoostingRegressor, StackingRegressor
+    from sklearn.ensemble import HistGradientBoostingRegressor
     from sklearn.linear_model import LinearRegression, Ridge
     from sklearn.neighbors import KNeighborsRegressor
 
-    from catboost import CatBoostRegressor
     from lightgbm import LGBMRegressor
     from xgboost import XGBRegressor
 
-    def build(model, one_hot=True, scale=True):
-        return Pipeline([("pre", make_preprocessor(one_hot, scale)), ("model", model)])
+    def build(model, one_hot=True):
+        return Pipeline([("pre", make_preprocessor(one_hot)), ("model", model)])
 
-    tree = dict(n_estimators=400, learning_rate=0.06, random_state=SEED)
+    # 三个库的随机种子参数名不一样（CatBoost 是 random_seed），所以不放进公共字典，
+    # 各自显式传，避免重复传参或传了个不被识别的名字被静默忽略。
+    tree = dict(n_estimators=400, learning_rate=0.06)
 
     return {
         # ---- 第一版用过的，做对照 ----
-        "均值基线 DummyRegressor": build(DummyRegressor(strategy="mean"), scale=False),
+        # 线性模型吃 one-hot：它们只能在线性组合里找信号，类别必须展开成 0/1 列。
+        "均值基线 DummyRegressor": build(DummyRegressor(strategy="mean")),
         "线性回归 LinearRegression": build(LinearRegression()),
         "岭回归 Ridge": build(Ridge(alpha=1.0)),
-        "K近邻 KNN(k=5)": build(KNeighborsRegressor(n_neighbors=5)),
+        "K近邻 KNN(k=5)": build(KNeighborsRegressor(n_neighbors=5, n_jobs=-1)),
 
-        # ---- GBDT 家族 ----
-        # sklearn 自带的 HistGradientBoosting，无需第三方依赖，作为 GBDT 的下限基准
+        # ---- GBDT 家族：一律 one_hot=False，走原生类别处理 ----
+        #
+        # 这一条必须显式写。默认值 True 会让它们全都拿到 one-hot 后的 numpy 数组，
+        # 而 CatBoost 会当场报错（「data 是浮点数组，但你声明了 cat_features」）；
+        # 另外三家**不报错**，只是默默按普通数值列处理那 165 维 0/1 列 ——
+        # 等于把 CatBoost 的有序目标统计、LightGBM 的类别分裂全部废掉，
+        # 「哪个模型更强」比出来的就是「谁更抗折腾」，毫无意义。
         "直方图梯度提升 HistGBR": build(
-            HistGradientBoostingRegressor(
-                categorical_features=CAT_IDX, random_state=SEED, **tree)),
-        "LightGBM": build(LGBMRegressor(verbose=-1, **tree)),
+            # sklearn 自带的 HistGBR，无需第三方依赖，作为 GBDT 的下限基准。
+            # 注意它的迭代次数参数叫 max_iter，不是另外三个库的 n_estimators。
+            HistGradientBoostingRegressor(categorical_features=CAT_IDX,
+                                          max_iter=tree["n_estimators"],
+                                          learning_rate=tree["learning_rate"],
+                                          random_state=SEED),
+            one_hot=False),
+        "LightGBM": build(LGBMRegressor(verbose=-1, random_state=SEED, **tree),
+                          one_hot=False),
         "XGBoost": build(XGBRegressor(enable_categorical=True, tree_method="hist",
-                                      verbosity=0, **tree)),
-        "CatBoost": build(CatBoostRegressor(verbose=0, cat_features=CAT_IDX,
-                                            random_seed=SEED, **tree)),
+                                      verbosity=0, random_state=SEED, **tree),
+                         one_hot=False),
+        "CatBoost": build(CatBoostCategorical(cat_features=CAT_IDX,
+                                              random_seed=SEED, **tree),
+                          one_hot=False),
     }
 
 
@@ -332,6 +431,15 @@ def make_stack(estimators: dict):
     文献里一致的做法（CatBoost + XGBoost + LightGBM + Ridge meta）——
     多个研究都报告堆叠比任何单一模型都好。用 `cv=make_cv()` 做内部交叉验证
     生成元特征，避免基模型在训练数据上「背答案」再喂给元学习器（那是另一种泄露）。
+
+    ⚠️ **一处诚实的保留**：内部这层 CV 用的是普通 KFold，不是 GroupKFold。
+    因为 ``StackingRegressor`` 没有把 ``groups`` 透传给内部划分器的接口
+    （`fit` 不接受 groups 参数），做不到按小区分组。
+    影响有多大要说清楚：元特征是在**训练折内部**生成的，外层评估用的
+    验证折小区与外层训练折完全不重叠，所以**不会**把验证折的小区信息漏进去；
+    受影响的只是「元学习器学到的权重略微乐观」这一点，
+    量级远小于基模型层面的同小区泄露。
+    要彻底修掉得自己用 GroupKFold 生成元特征再拟合 Ridge，属于可以但不值得的复杂度。
     """
     from sklearn.ensemble import StackingRegressor
     from sklearn.linear_model import Ridge
@@ -356,6 +464,24 @@ def eta2(df: pd.DataFrame, group: str, target: str = TARGET) -> float:
     ssb = sum(g * (df.loc[df[group] == k, target].mean() - grand) ** 2
               for k, g in vc.items() if pd.notna(k))
     return float(ssb / ((df[target] - grand) ** 2).sum())
+
+
+def shuffle_once(X, y, groups, seed: int = SEED):
+    """按固定种子打乱行序，返回打乱后的 (X, y, groups)。
+
+    **为什么必须先打乱**：``GroupKFold`` **不打乱**，它按「小区第一次出现的顺序」
+    依次把小区分到各折。而原始 CSV 是按板块/环线排好序的，于是每一折恰好落在
+    连续的地理区块上 —— 这样测出来的落差里，「没见过的小区」和「没见过的区域」
+    两件事混在一起，说不清是谁造成的。普通 KFold 是 ``shuffle=True`` 的，
+    拿一个打乱的方案去比一个没打乱的方案，差多少都不能归因。
+
+    打乱行序只改变「哪些小区进哪一折」，**不破坏小区完整性**，
+    分组约束依然成立，所以这是纯粹的实验设计修正，不是放水。
+    """
+    perm = np.random.RandomState(seed).permutation(len(X))
+    return (X.iloc[perm].reset_index(drop=True),
+            y.iloc[perm].reset_index(drop=True),
+            groups.iloc[perm].reset_index(drop=True))
 
 
 def make_group_cv():
