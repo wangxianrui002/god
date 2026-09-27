@@ -65,13 +65,28 @@ def fmt_params(params: dict) -> str:
     return ", ".join(parts)
 
 
+def knn_distances(n_candidates: int, n_rows: int, n_splits: int = 5) -> float:
+    """整个 KNN 网格搜索要算多少个「点对距离」。
+
+    一次 ``predict`` = 测试行数 × 训练行数 个距离；网格搜索总共要做
+    「候选数 × 折数」次 predict。
+
+    为什么要算而不是写死：第一版 README 和源码注释里同时存在「十几亿」和
+    「八千万」两个说法，相差三个数量级，至少有一个是早期小数据集时代的残留。
+    数字写死的注释早晚会过期，算出来的不会。README 里引用的就是这个函数的结果。
+    """
+    per_fold = n_rows / n_splits
+    return n_candidates * n_splits * per_fold * (n_rows - per_fold)
+
+
 def search(est: Pipeline, grid: dict, X, y, label: str) -> dict:
     """跑一次网格搜索，返回结果摘要。
 
     用 error_score='raise'：GridSearchCV 默认把拟合失败的组合记成 nan 继续跑，
     那样「失败」看起来只是「得分低」，会被当成一个普通候选。
     """
-    # n_jobs=-1：43,213 行的 KNN 每次预测都要算八千万次距离，串行跑一遍网格要几分钟。
+    # n_jobs=-1：KNN 的一次 predict 要算「测试行数 × 训练行数」个距离，
+    # 整个网格搜索是「候选数 × 折数」次 predict，量级在 10^10。串行跑要几分钟。
     # 并行只影响速度，不影响结果 —— 每一折的划分由 make_cv() 的随机种子固定。
     gs = GridSearchCV(est, grid, cv=make_cv(), scoring="r2",
                       error_score="raise", n_jobs=-1)
@@ -191,6 +206,9 @@ def main() -> int:
                  "调参后CV_R2": round(r2["best_score"], 4)})
 
     # ---- 3. KNN 的 n_neighbors ---------------------------------------
+    n_dist = knn_distances(len(KS), len(X))
+    print(f"  KNN 网格搜索：{len(KS)} 个候选 × 5 折，共约 {n_dist:.2e} "
+          f"（{n_dist / 1e8:.0f} 亿）次点对距离计算")
     r3 = search(knn_pipe(), {"model__n_neighbors": KS}, X, y, "KNN：调 n_neighbors")
     rows.append({"搜索对象": "KNN.n_neighbors", "最优参数": fmt_params(r3["best_params"]),
                  "调参前CV_R2": round(float(base_knn), 4),

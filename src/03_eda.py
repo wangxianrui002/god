@@ -208,8 +208,13 @@ def fig05_leak_screen(screen: pd.DataFrame) -> None:
     ax.set_xlim(-0.10, float(d["单特征CV_R2"].max()) * 1.30)
     ax.set_xlabel("只拿这一个特征去预测单价，5 折交叉验证能得到的 R^2")
     ax.grid(axis="y", visible=False)
+    # 标题里的数字必须从同一张表里取。原来这里是硬编码的 "+0.223"，
+    # 换一次数据集就会变成一句谎话 —— 而图上其它数字都是算出来的，
+    # 读者没有理由怀疑标题。LEAK_R2_THRESHOLD 的注释里记着这个坑。
+    tot = float(d.loc[d["特征"] == "总价_万", "单特征CV_R2"].squeeze())
     ax.set_title("泄露判据：单特征 CV R^2（不是相关系数）\n"
-                 "红边 = 已知的泄露列。「小区均价」被拦住；「总价_万」只有 +0.223，判据放它过去了",
+                 f"红边 = 已知的泄露列。「小区均价」被拦住；「总价_万」只有 {tot:+.3f}，"
+                 f"判据放它过去了",
                  fontsize=12.5, loc="left")
     fig.tight_layout()
     fig.savefig(FIG / "fig05_leak_screen.png")
