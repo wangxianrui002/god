@@ -27,7 +27,7 @@ import time
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import train_test_split
 
 from common import (BASELINE, C_AQUA, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK,
                     INK_2, MUTED, RES, SEED, SURFACE, TARGET, guard_no_leakage,

@@ -146,10 +146,6 @@ SURFACE, INK, INK_2, MUTED = "#fcfcfb", "#0b0b0b", "#52514e", "#898781"
 GRID, BASELINE, MIDPOINT = "#e1e0d9", "#c3c2b7", "#f0efec"
 SEQ_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
 
-# 分类色序（固定顺序，不循环使用）
-CAT_HUES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4",
-            "#7d5ec7", "#0f9bbd", "#c96a2b"]
-
 
 def setup_chinese_font() -> None:
     """让 matplotlib 正常显示中文和负号。所有画图脚本的第一句。"""

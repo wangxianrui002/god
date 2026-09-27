@@ -31,10 +31,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from common import (BASELINE, C_AQUA, C_BLUE, C_CRITICAL, C_ORANGE, CATEGORICAL,
-                    FIG, GRID, INK, INK_2, MUTED, NUMERIC, RES, SEED, SURFACE,
+from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, CATEGORICAL,
+                    FIG, INK_2, NUMERIC, RES, SEED, SURFACE,
                     TARGET, build_features, cv_scores, guard_no_leakage,
-                    load_clean, load_raw, make_models, make_preprocessor, rmse,
+                    load_clean, load_raw, make_models, rmse,
                     setup_chinese_font)
 
 TEST_SIZE = 0.2
@@ -90,8 +90,8 @@ def fig07_compare(res: pd.DataFrame, leak: dict) -> None:
     b2 = ax.barh(ypos - h / 2 - 0.02, d["留出集_R2"], height=h,
                  color=C_ORANGE, label=f"留出集 R^2（{int((1 - TEST_SIZE) * 100)}/{int(TEST_SIZE * 100)} 划分）")
 
-    bl = ax.barh([leak_row], [leak["r2"]], height=h, color=C_CRITICAL,
-                 label="泄露演示：Ridge +「总价_万」（同一套 CV，故意漏过去）")
+    ax.barh([leak_row], [leak["r2"]], height=h, color=C_CRITICAL,
+            label="泄露演示：Ridge +「总价_万」（同一套 CV，故意漏过去）")
     ax.text(leak["r2"] + 0.012, leak_row, f"{leak['r2']:+.3f}",
             va="center", ha="left", fontsize=9.5, color=C_CRITICAL)
     ax.text(0.012, leak_row - 0.42,

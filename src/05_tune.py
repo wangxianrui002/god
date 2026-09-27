@@ -30,7 +30,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 
 from common import (BASELINE, C_BLUE, C_ORANGE, DegreeOnNumeric, FIG, INK, INK_2,
-                    MUTED, RES, SEED, SURFACE, TARGET, cv_scores, guard_no_leakage,
+                    RES, SEED, SURFACE, TARGET, cv_scores, guard_no_leakage,
                     load_clean, make_cv, make_preprocessor, rmse,
                     setup_chinese_font)
 

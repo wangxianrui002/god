@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import RandomizedSearchCV
 
-from common import (BASELINE, C_AQUA, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK,
+from common import (C_AQUA, C_BLUE, C_CRITICAL, FIG, INK,
                     INK_2, MUTED, RES, SEED, SURFACE, setup_chinese_font)
 from common_v2 import (cv_scores, group_cv_scores, load_xy, make_group_cv,
                        make_models, shuffle_once)

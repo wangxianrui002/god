@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import sys
 
-import numpy as np
 import pandas as pd
 from pandas.api import types as pdt
 

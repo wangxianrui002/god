@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK, INK_2,
-                    LEAK_R2_THRESHOLD, MUTED, SURFACE, TARGET, build_features,
+                    LEAK_R2_THRESHOLD, SURFACE, TARGET, build_features,
                     div_cmap, load_clean, load_raw, screen_single_features,
                     seq_cmap, setup_chinese_font)
 

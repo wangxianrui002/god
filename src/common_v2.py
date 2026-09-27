@@ -16,21 +16,18 @@
 from __future__ import annotations
 
 import json
-import re
 
 import numpy as np
 import pandas as pd
-from pandas.api import types as pdt
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 # 与数据集无关的规则，全部沿用第一版，不重新定义
-from common import (DATA, FIG, LEAK_R2_THRESHOLD, MIN_CATEGORY_COUNT, OTHER, RES,
-                    ROOT, SEED, TARGET, cv_scores, guard_no_leakage, make_cv, rmse,
-                    screen_single_features, setup_chinese_font, seq_cmap, div_cmap)
+from common import (DATA, MIN_CATEGORY_COUNT, OTHER, SEED, TARGET, _num, cv_scores,
+                    make_cv)
 
 # --------------------------------------------------------------------------
 # 路径
@@ -97,10 +94,6 @@ DROP_ALWAYS_V2 = [
     "neighborhood",      # 已重命名为「板块」
 ]
 
-# 与第一版共用同一套判据阈值，但列名黑名单要加上本数据集的实际列名
-LEAK_NAME_PATTERN_V2 = re.compile(r"价格|总价|单价|首付|万元|_万$|price|Price|total_price")
-
-
 def feature_columns() -> list[str]:
     return NUMERIC + CATEGORICAL
 
@@ -130,10 +123,6 @@ def load_xy(df: pd.DataFrame | None = None):
 # --------------------------------------------------------------------------
 # 特征工程
 # --------------------------------------------------------------------------
-def _num(s) -> pd.Series:
-    return pd.to_numeric(s, errors="coerce")
-
-
 def _parse_tags(s) -> set:
     """tags 形如 '["满五年","近地铁"]'，解析失败就当没有标签。"""
     if not isinstance(s, str):

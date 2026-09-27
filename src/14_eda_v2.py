@@ -31,7 +31,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK, INK_2,
+from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK_2,
                     MUTED, RES, SURFACE, setup_chinese_font)
 from common_v2 import GROUP_COL, eta2, load_clean
 
