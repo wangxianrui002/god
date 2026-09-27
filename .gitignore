@@ -29,3 +29,6 @@ data/house_v2_raw.csv
 
 # 下载解压的临时目录（zip + 170 MB 全量 CSV）
 data/_dl/
+
+# CatBoost 训练时会在 CWD 生成 catboost_info/（训练日志，不是产出物）
+catboost_info/
