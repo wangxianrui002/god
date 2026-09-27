@@ -6,23 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 一、实验目标与要求（便于回忆与检查）
 
-本仓库是《Python机器学习教程》第 7 章「综合练习」的完整实现，对应课程的综合实验任务：
+本仓库是《Python机器学习教程》第 7 章「综合练习」的完整实现。题目原文只说「应用上述算法
+思想对股票、房价进行预测」，**没给数据、没指定算法、没给评分标准**，所以选题、取数、建模、
+交付全部自定。
 
-> 基于三种以上机器学习模型的房价等综合实验，设计模型并进行数据、结果的量化分析。
-> 综合实验要求：数据量充分（1W+），模型选用合理，计算过程科学，结果分析量化，
-> 展示效果良好，实验讲解清晰。
-
-**选题**：北京二手房单价（元/㎡）预测。题目原文只说「应用上述算法思想对股票、房价进行
-预测」，没给数据、没指定算法、没给评分标准，所以选题、取数、建模、交付全部自定。
-
-逐条对照（复核时按这张表点文件）：
+> 综合实验要求：三种以上机器学习模型、数据量 1W+、模型选用合理、计算过程科学、
+> 结果分析量化、展示效果良好、实验讲解清晰。
 
 | 要求 | 本项目如何满足 | 证据 |
 |---|---|---|
-| 三种以上模型 | 第一版 **5 个**（`LinearRegression` / `Ridge` / `Ridge+Poly2` / `KNN` 取自教程 §6.1，外加 `DummyRegressor` 均值基线当及格线）；第二版 **9 个**（4 个教程模型 + `HistGBR` / `LightGBM` / `XGBoost` / `CatBoost` + `StackingRegressor` 堆叠集成） | `src/common.py` / `src/common_v2.py` 的 `make_models()`；`results/model_scores.csv`、`results/model_scores_v2.csv` |
-| 数据量 1W+ | 第一版建模表 **43,213** 行（4.3 倍）；第二版 **73,625** 行（7.4 倍） | `data/lianjia_bj_clean.csv`、`data/house_v2_clean.csv`；README §3.2、§13.1 |
+| 三种以上模型 | 第一版 **5 个**（`LinearRegression` / `Ridge` / `Ridge+Poly2` / `KNN` 取自教程 §6.1，外加 `DummyRegressor` 均值基线当及格线）；第二版 **9 个**（4 个教程模型 + `HistGBR` / `LightGBM` / `XGBoost` / `CatBoost` + `StackingRegressor`） | `make_models()`；`results/model_scores.csv`、`model_scores_v2.csv` |
+| 数据量 1W+ | 第一版 **43,213** 行（4.3 倍）；第二版 **73,625** 行（7.4 倍） | `data/*_clean.csv`；README §3.2、§13.1 |
 | 模型选用合理 | 第一版只挑教程讲过的算法；第二版**按文献调研**选 GBDT 家族 + 堆叠（`MODEL_SELECTION.md`），且四个 GBDT 全部实测、用自己数据说话而非照搬文献结论；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | `MODEL_SELECTION.md`；README §9.2、§13.2 |
-| 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `src/common_v2.py` `make_group_cv()`；README §五、§7.2、§9.3、§13.4 |
+| 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `make_group_cv()`；README §五、§7.2、§9.3、§13.4 |
 | 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868）/ **「换数据 +0.0917」与「换模型 +0.0840」分开算** | README §四、§五、§七、§13；`results/*.csv` |
 | 展示效果良好 | 13 张图 + **自包含预测网页**（双击即开、离线可用、16 个输入项、3 张实时图） | `figures/fig01~13`；`web/index.html` |
 | 实验讲解清晰 | README 十三节正文 + `MODEL_SELECTION.md`（选型依据）；关键取舍都写在源码注释里 | `README.md`、`MODEL_SELECTION.md` |
@@ -32,9 +28,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 （η² = 0.627 / 0.641）；R² 停在 0.70 是因为数据没采集学区/朝向/楼层。
 
 **第二版把「缺的是数据不是算法」验证了，也修正了它**：换数据确实涨 9 个点（+0.0917），
-但换模型同样涨 8 个点（+0.0840）—— 因为线性模型**吃不下特征交互**，
-而新字段（朝向/装修/楼层）的一元解释力低得惊人（η² 0.002~0.037），
-价值全在组合里。**两件事必须一起做。**
+但换模型同样涨 8 个点（+0.0840）—— 因为线性模型**吃不下特征交互**，而新字段（朝向/装修/
+楼层）的一元解释力低得惊人（η² 0.002~0.037），价值全在组合里。**两件事必须一起做。**
 
 ---
 
@@ -46,8 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 uv sync                                # 按 uv.lock 还原依赖
 
-uv run python src/01_download.py       # 下载数据，约 60 MB，需联网；已存在则跳过
-uv run python src/01_download.py --force   # 强制重下
+uv run python src/01_download.py       # 下载数据，约 60 MB，需联网；已存在则跳过（--force 重下）
 uv run python src/02_clean.py          # 切窗口 + 清洗 + 特征工程 + 泄露筛查   秒级
 uv run python src/03_eda.py            # 探索性分析 → fig01~fig06             秒级
 uv run python src/04_regression.py     # 5 个模型对比 → fig07/08              秒级
@@ -67,11 +61,10 @@ uv run python src/13_tune_v2.py --figs-only         # 只重画图，读已落�
 uv run python src/14_eda_v2.py         # 新字段一元解释力 η²                 秒级
 ```
 
-- **`05_tune.py` 和 `12_model_compare.py` 是慢的**。前者在 43,213 行上跑 KNN 网格搜索，
-  每次预测都要算一遍全表距离，已开 `n_jobs=-1`，仍需几分钟；后者里的堆叠集成要跑
-  内层 5 折 × 4 个基模型 × 外层 5 折，约 10 分钟。**别用默认 2 分钟超时去跑它们**。
-  距离次数由 `knn_distances()` 按实际行数算出（≈1.8×10¹⁰），**不写死** ——
-  这个数字以前在 README 和源码里差 3 个数量级（PLAN.md P0-4），现在统一到同一个定义。
+- **`05_tune.py` 和 `12_model_compare.py` 是慢的**。前者在 43,213 行上跑 KNN 网格搜索，每次
+  预测都要算一遍全表距离，已开 `n_jobs=-1`，仍需几分钟；后者里的堆叠集成要跑内层 5 折 ×
+  4 个基模型 × 外层 5 折，约 10 分钟。**别用默认 2 分钟超时去跑它们**。
+  距离次数由 `knn_distances()` 按实际行数算出（≈1.8×10¹⁰），**不写死**。
 - 所有脚本都**幂等**，随便重复跑。
 - `06_export.py` 需要 **node**；没装时两道校验都打印 `[跳过]` 并继续，但会明确提示
   「网页逻辑未经验证」。
@@ -87,10 +80,11 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 ### 3.1 两套流水线：第一版（`01`~`06`）与第二版（`10`~`14`）
 
 每个脚本只做一件事，产出物落盘，下一个脚本读盘。因此任何一段都可以单独重跑。
-
-**第一版** —— 链家成交数据 + 教程里的线性模型，README §一~§十二：
+**用 `1x` 编号是为了让两套流水线并存但不混淆**：第一版的产出物一个都没动，
+「换数据」和「换模型」各值多少才算得出来。
 
 ```
+第一版 —— 链家成交数据 + 教程里的线性模型，README §一~§十二
 01_download  → data/lianjia_bj_raw.csv     318,851×26   (59 MB，不入库)
 02_clean     → data/lianjia_bj_clean.csv    43,213×17   (3.8 MB，入库；不含任何价格字段)
              → results/leak_screen.csv, results/dropped_rows.csv
@@ -98,13 +92,8 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 04_regression→ figures/fig07~fig08, results/model_scores.csv
 05_tune      → figures/fig09, results/tuning_results.csv
 06_export    → web/model.json, web/index.html, results/app_test_cases.csv
-```
 
-**第二版** —— Kaggle 挂牌数据 + GBDT 家族，README §十三。
-**用 `1x` 编号是为了让两套流水线并存但不混淆**：第一版的产出物一个都没动，
-「换数据」和「换模型」各值多少才算得出来（`results/model_scores.csv` 是第一版的基线）。
-
-```
+第二版 —— Kaggle 挂牌数据 + GBDT 家族，README §十三
 10_download_v2 → data/house_v2_raw.csv      73,685×22   (26 MB，不入库)
 11_prepare_v2  → data/house_v2_clean.csv    73,625×18   (7.5 MB，入库；16 特征 + 单价 + 小区)
                → results/leak_screen_v2.csv, results/dropped_rows_v2.csv
@@ -116,27 +105,17 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 **`src/common.py` 与 `src/common_v2.py` 的分工**：与数据集**无关**的规则（随机种子、
 防泄露三道关、交叉验证、RMSE、绘图配色）只在 `common.py` 定义一次，`common_v2.py`
 **导入**它们，绝不重新定义 —— 那套规则只能有一份，有两份早晚会有一份先过期。
+`common.py` 是**唯一真源**，被 02~06 全部导入（第二版经 `common_v2.py` 间接复用）。
 `common_v2.py` 只放第二版特有的：字段映射、清洗阈值、`GbdtFrame` 预处理器、
 `make_group_cv()`、`CatBoostCategorical`。
 
-⚠️ `12_model_compare.py` 里的堆叠集成要跑 **10 分钟**（内层 5 折 × 4 个基模型 × 外层 5 折，
-CatBoost 一个就 14 秒）。只改图的话用 `--figs-only`，它从 `results/model_scores_v2.csv`
-读数据重画，不重跑模型。
+`common.py` 同时定义：路径常量、`SEED = 42`、`TARGET = "单价"`、`WINDOW_YEARS`、
+编码 → 中文的映射表（**从数据实证得出，不是抄文档**）、`NUMERIC` / `CATEGORICAL` 特征清单与
+`build_features()`、防泄露规则（`DROP_ALWAYS` / `LEAK_NAME_PATTERN` / `LEAK_R2_THRESHOLD` /
+`guard_no_leakage()`）、`make_preprocessor()` / `make_models()` / `make_cv()` / `cv_scores()`、
+绘图配色常量与中文字体设置。
 
-**`src/common.py` 是唯一真源**，被 01~06 全部导入（第二版经 `common_v2.py` 间接复用）。它同时定义：
-
-**`src/common.py` 是唯一真源**，被 02~06 全部导入。它同时定义：
-
-- 路径常量、`SEED = 42`、`TARGET = "单价"`；
-- `WINDOW_YEARS` —— 取哪一年的数据；
-- 编码 → 中文的映射表（`DISTRICT_NAMES` 等，**从数据实证得出，不是抄文档**）；
-- `NUMERIC` / `CATEGORICAL` 特征清单与 `build_features()` 特征工程；
-- **防泄露规则**（`DROP_ALWAYS` / `LEAK_NAME_PATTERN` / `LEAK_R2_THRESHOLD` / `guard_no_leakage()`）；
-- `make_preprocessor()` / `make_models()` / `make_cv()` / `cv_scores()`；
-- 绘图配色常量与中文字体设置。
-
-**要改特征、改窗口、改模型清单，只改 `common.py`。** 这套规则绝不能有两份定义 ——
-早晚会有一份先过期。
+**要改特征、改窗口、改模型清单，只改 `common.py`。**
 
 ### 3.2 网页是生成物，不是源码
 
@@ -150,8 +129,8 @@ web/model.json     ─┘
 
 - **改了 `template.html` 或 `predict.js` 必须重跑 `06_export.py`**，否则改动不会出现在页面上。
 - `index.html` 仍进版本库，是为了 clone 下来双击就能用。
-- `predict.js` 是**一份实现、两处使用**：网页和 node 校验脚本共用它，所以「页面显示的数」
-  和「Python 算的数」不会各写一份然后慢慢漂移。它把 Python 管线的每一步在 JS 里重放：
+- `predict.js` 是**一份实现、两处使用**：网页和 node 校验脚本共用它，所以「页面显示的数」和
+  「Python 算的数」不会各写一份然后慢慢漂移。它把 Python 管线的每一步在 JS 里重放：
   `SimpleImputer(median)` → `StandardScaler` → `SimpleImputer(most_frequent)` →
   `OneHotEncoder(handle_unknown="ignore")` → `Ridge` 线性组合。
 - **导出参数一律按 `float64` 原样写，不做任何四舍五入。** 曾经为了「让 JSON 好看」留 6 位
@@ -163,10 +142,10 @@ web/model.json     ─┘
 
 ### 3.3 数据窗口
 
-原始数据跨 2002–2018，这期间北京单价中位数从 3.8 万涨到 6.6 万。全量混在一起建模，
-模型学到的大半会是「这套房是哪年卖的」而不是「这套房值多少」。所以 `WINDOW_YEARS`
-默认 `(2017, 2017)` → 43,217 行，清洗后 **43,213** 行；单一年份因此**不需要把「成交年月」
-放进特征**，价格纯粹由房屋属性解释。改这个常量即换窗口（`(2016,2017)` → 134,046 行；
+原始数据跨 2002–2018，这期间北京单价中位数从 3.8 万涨到 6.6 万。全量混在一起建模，模型学到
+的大半会是「这套房是哪年卖的」而不是「这套房值多少」。所以 `WINDOW_YEARS` 默认
+`(2017, 2017)` → 43,217 行，清洗后 **43,213** 行；单一年份因此**不需要把「成交年月」放进
+特征**，价格纯粹由房屋属性解释。改这个常量即换窗口（`(2016,2017)` → 134,046 行；
 `None` → 全量 318,851 行）。
 
 ---
@@ -175,32 +154,31 @@ web/model.json     ─┘
 
 这几条是本项目的正确性核心，动代码前先读 `README.md` §五、§六：
 
-1. **防泄露三关**，建模前必须过 `guard_no_leakage()`：① 列名黑名单
-   `LEAK_NAME_PATTERN`（抓 `总价_万`）；② `DROP_ALWAYS` 显式排除（抓 `totalPrice` /
-   `communityAverage` / 经纬度 / `DOM` / 标识符）；③ 单特征 CV R² > 0.35 判泄露
-   （抓 `小区均价`，它的列名里没有「价格」二字，只有 R² 拦得住）。
-   **两道数值判据都拦不住 `总价_万`**（corr 只有 0.473、单特征 R² 只有 0.223），
-   但 `总价_万 × 10000 ÷ 面积` 与单价的相关是 0.9999999998 —— 所以列名/语义那一层不能省。
-   加进去 Ridge 的 CV R² 会从 0.678 虚高到 0.868。
+1. **防泄露三关**，建模前必须过 `guard_no_leakage()`：① 列名黑名单 `LEAK_NAME_PATTERN`
+   （抓 `总价_万`）；② `DROP_ALWAYS` 显式排除（抓 `totalPrice` / `communityAverage` /
+   经纬度 / `DOM` / 标识符）；③ 单特征 CV R² > 0.35 判泄露（抓 `小区均价`，它的列名里没有
+   「价格」二字，只有 R² 拦得住）。**两道数值判据都拦不住 `总价_万`**（corr 只有 0.473、
+   单特征 R² 只有 0.223），但 `总价_万 × 10000 ÷ 面积` 与单价的相关是 0.9999999998 ——
+   所以列名/语义那一层不能省。加进去 Ridge 的 CV R² 会从 0.678 虚高到 0.868。
    `02_clean.py` 有断言：建模表里不允许出现 `DROP_ALWAYS` 的任何一列。
    **不要为了「特征更多」而把价格派生量、按区县/小区分组的均价加回来**（target encoding 泄露）。
-2. **缺失值一律保留 NaN**，交给 Pipeline 里的 `SimpleImputer`。**不要手工先填成中位数**
-   —— 那会让「填补」这一步躲开交叉验证，等于训练时偷看验证集的中位数。剩余缺失：
-   房龄 793、建筑类型 478、建筑结构 80、楼层位置 4、梯户比 1。
+2. **缺失值一律保留 NaN**，交给 Pipeline 里的 `SimpleImputer`。**不要手工先填成中位数** ——
+   那会让「填补」这一步躲开交叉验证，等于训练时偷看验证集的中位数。剩余缺失：房龄 793、
+   建筑类型 478、建筑结构 80、楼层位置 4、梯户比 1。
 3. **异常值不删。** IQR 之外的点是核心城区与远郊的真实价差，不是错误值；按 IQR 硬删会切掉
-   最贵的核心区样本，等于把最有效的预测依据删了。清洗阈值（单价 5,000~200,000、
-   面积 10~1,000 ㎡）定得很宽，只剔录入错误（原始数据最小单价 136 元/㎡），实测只剔 4 行。
-4. **稀有类别两步走**（`MIN_CATEGORY_COUNT = 200`）：先并成「其他」，并完桶还不够 200 行
-   就设为 NaN 交给 `SimpleImputer(most_frequent)`。只做第一步不管用 —— `建筑类型=平房`
-   只有 1 行，并成「其他」后这个桶还是 1 行，照样拿到 +10,460 元/㎡ 的系数。阈值刚好并掉
+   最贵的核心区样本，等于把最有效的预测依据删了。清洗阈值（单价 5,000~200,000、面积
+   10~1,000 ㎡）定得很宽，只剔录入错误（原始数据最小单价 136 元/㎡），实测只剔 4 行。
+4. **稀有类别两步走**（`MIN_CATEGORY_COUNT = 200`）：先并成「其他」，并完桶还不够 200 行就
+   设为 NaN 交给 `SimpleImputer(most_frequent)`。只做第一步不管用 —— `建筑类型=平房` 只有
+   1 行，并成「其他」后这个桶还是 1 行，照样拿到 +10,460 元/㎡ 的系数。阈值刚好并掉
    平房(1)/结构1(30)/结构3(13)/结构5(37)，而 13 个区县最少的门头沟 267 行**全部保留**
    （区县是页面上必须能选的维度，不能并成「其他」）。
 5. **README 里的数字是实测写死的**（0.696 / 13,306 / 62.7% / 5.8e-11 / 43,213 …）。
    **改动数据或模型后重跑，若数字变了，必须同步更新 README 对应小节**，否则文档与产出物
    互相矛盾。同理 `05_tune.py` 的子图副标题是**按实测缝隙算出来的，不是写死的** ——
    曾经照抄教科书的「alpha 太小 → 过拟合」，跑完才发现图上根本没有那道缝。
-6. **图表用中文标签 + 浅色底，配色复用 `common.py` 的常量**（取自 dataviz 技能里已通过
-   校验器的调色板），不要在脚本里新写颜色字面量。
+6. **图表用中文标签 + 浅色底，配色复用 `common.py` 的常量**（取自 dataviz 技能里已通过校验器
+   的调色板），不要在脚本里新写颜色字面量。
 
 ---
 
@@ -208,76 +186,75 @@ web/model.json     ─┘
 
 **scikit-learn**
 
-- `make_pipeline(('name', est), ...)` 在 1.9 起**不再接受 `(名字, 估计器)` 元组** ——
-  它会把整个元组当成一个「估计器」，step 变成 `('tuple-1', ('imp', SimpleImputer(...)))`，
+- `make_pipeline(('name', est), ...)` 在 1.9 起**不再接受 `(名字, 估计器)` 元组** —— 它会把
+  整个元组当成一个「估计器」，step 变成 `('tuple-1', ('imp', SimpleImputer(...)))`，
   `ColumnTransformer` 接着报 `All estimators should implement fit and transform`。
   **要自定义 step 名字，只能 `Pipeline([...])` + 显式列表**，见 `make_preprocessor()`。
 - `cross_val_score` 的 `error_score` 默认是 `np.nan`，pipeline 出错会**静默**返回 nan，
   坏掉的模型看起来只是「效果差」。`cv_scores()` 里用 `error_score="raise"` + 断言。
-- `OneHotEncoder` 必须 `handle_unknown="ignore"`：13 个区县在每一折里都可能有个别取值
-  没出现在训练集，默认的 `"error"` 会直接崩。
-- **自定义估计器的继承顺序必须是 `(RegressorMixin, BaseEstimator)`，mixin 在前。**
-  写反了 `BaseEstimator.__sklearn_tags__` 排在 MRO 前面且不调用 `super()`，
-  `RegressorMixin` 那版永远轮不到，`estimator_type` 一直是 `None`，
-  `is_regressor()` 返回 False，堆叠集成报 **"The estimator Pipeline should be a regressor."**
-  —— 报错信息完全指不到继承顺序上。见 `common_v2.CatBoostCategorical`。
+- `OneHotEncoder` 必须 `handle_unknown="ignore"`：13 个区县在每一折里都可能有个别取值没有
+  出现在训练集，默认的 `"error"` 会直接崩。
+- **自定义估计器的继承顺序必须是 `(RegressorMixin, BaseEstimator)`，mixin 在前。** 写反了
+  `BaseEstimator.__sklearn_tags__` 排在 MRO 前面且不调用 `super()`，`RegressorMixin` 那版
+  永远轮不到，`estimator_type` 一直是 `None`，`is_regressor()` 返回 False，堆叠集成报
+  **"The estimator Pipeline should be a regressor."** —— 报错信息完全指不到继承顺序上。
+  见 `common_v2.CatBoostCategorical`。
 
 **第二版 GBDT（`common_v2.py`，三个坑都不报错或报错指不到根因）**
 
-- **`ColumnTransformer` 会把数值列也变成 `object`。** 它把各列 hstack 成一个数组，
-  float64 与 object 混在一起会被统一提升成 object。改用 `GbdtFrame` 逐列构造 DataFrame。
+- **`ColumnTransformer` 会把数值列也变成 `object`。** 它把各列 hstack 成一个数组，float64
+  与 object 混在一起会被统一提升成 object。改用 `GbdtFrame` 逐列构造 DataFrame。
 - **`X.iloc[:, i] = X.iloc[:, i].astype("category")` 是无效赋值。** iloc 是就地写入已有的
   object 块，pandas 会把 Categorical 还原成原值，dtype 一点没变，**不报任何错**。
   必须用标签赋值 `X[c] = ...`。
-- **类别表必须在 `fit` 时定死，不能在 `transform` 里现推。** 训练折和验证折各推一套，
-  顺序未必相同；XGBoost 按 `cat.codes`（类别在类别表里的**下标**）读数据，下标一错位
-  整列含义就变了 —— 不报错，只是把「南北」当成「东」。症状是 **GroupKFold 的 R² 掉成
-  -0.1461（负数）而 KFold 一切正常**，根因却在编码。LightGBM / CatBoost 按类别**取值**
-  处理，没这个问题。
+- **类别表必须在 `fit` 时定死，不能在 `transform` 里现推。** 训练折和验证折各推一套，顺序
+  未必相同；XGBoost 按 `cat.codes`（类别在类别表里的**下标**）读数据，下标一错位整列含义就
+  变了 —— 不报错，只是把「南北」当成「东」。症状是 **GroupKFold 的 R² 掉成 -0.1461（负数）
+  而 KFold 一切正常**，根因却在编码。LightGBM / CatBoost 按类别**取值**处理，没这个问题。
 - **`CatBoostRegressor.get_params()` 返回 `cat_features` 的副本**，而 `sklearn.clone` 有
   「构造器必须原样保存参数」的硬断言，`cross_val_score` / `StackingRegressor` 必崩：
   `Cannot clone object ... as the constructor either does not set or modifies parameter`。
   修法见 `CatBoostCategorical`（把声明挪进 `fit`）。另外 CatBoost **不会**从 pandas
   category dtype 自动识别类别列，不声明直接报错。
-- **`GroupKFold` 不打乱。** 原始 CSV 按板块/环线排序，直接跑会让每一折落在连续的地理
-  区块上，「没见过的小区」和「没见过的区域」混在一起。必须先 `shuffle_once()` 打乱行序
-  （只改变哪些小区进哪一折，不破坏分组完整性），才能和 `shuffle=True` 的 `KFold` 对比。
+- **`GroupKFold` 不打乱。** 原始 CSV 按板块/环线排序，直接跑会让每一折落在连续的地理区块上，
+  「没见过的小区」和「没见过的区域」混在一起。必须先 `shuffle_once()` 打乱行序（只改变哪些
+  小区进哪一折，不破坏分组完整性），才能和 `shuffle=True` 的 `KFold` 对比。
 
 **pandas 3**
 
-- **字符串列的 dtype 是 `str` 而不再是 `object`**。写 `if df[c].dtype == object` 会
-  **静默跳过所有字符串列**，`.strip()` 完全失效。本数据的字符串列带填充空格（`' 精装 '`），
-  不 strip 会让 OneHotEncoder 把 `' 精装 '` 和 `'精装'` 当成两个类别。
+- **字符串列的 dtype 是 `str` 而不再是 `object`**。写 `if df[c].dtype == object` 会**静默跳过
+  所有字符串列**，`.strip()` 完全失效。本数据的字符串列带填充空格（`' 精装 '`），不 strip
+  会让 OneHotEncoder 把 `' 精装 '` 和 `'精装'` 当成两个类别。
 - `groupby(...).apply(...)` 需要 `include_groups=False`，否则分组列同时出现在参数和结果里。
 
 **数据源**
 
-- 编码是 **GB18030 不是 UTF-8**，直接按 UTF-8 读会在字节 0 就 `UnicodeDecodeError`。
-  下载后 `.decode('gb18030')` 再存 UTF-8，让编码问题只在 `01` 里出现一次。
+- 编码是 **GB18030 不是 UTF-8**，直接按 UTF-8 读会在字节 0 就 `UnicodeDecodeError`。下载后
+  `.decode('gb18030')` 再存 UTF-8，让编码问题只在 `01` 里出现一次。
 - GitHub 个人仓库链接会失效，`SOURCES` 列表放主/备地址逐个重试并退避，全失败时打印手动
   下载指引。
-- 原始数据没有附带码表，`district` 等字段是数字代码。**不要猜编码含义** —— 现有映射是从
-  数据实证的（按代码分组算平均经纬度 + 10 个公开地标反查 60/60 命中；建筑类型靠层数与
-  电梯率两个独立证据交叉验证）。网上流传的「1=板楼、4=平房」**与数据矛盾**，是错的。
+- 原始数据没有附带码表，`district` 等字段是数字代码。**不要猜编码含义** —— 现有映射是从数据
+  实证的（按代码分组算平均经纬度 + 10 个公开地标反查 60/60 命中；建筑类型靠层数与电梯率两个
+  独立证据交叉验证）。网上流传的「1=板楼、4=平房」**与数据矛盾**，是错的。
 
 **发布链路**
 
-- `06_export.py` 有**两道**校验，缺一不可：第一道用 node 的 `vm.Script` 编译页面里的内联
-  脚本（只查语法），第二道用 `predict.js` 整表跑 43,213 行与 Python 逐行比对。曾经模板里
-  多写一个 `}`，页面打开是空表，而第二道仍打印 ✓ —— 因为它验的是 `predict.js` 里的预测
-  函数，和页面脚本是两份代码。
+- `06_export.py` 有**两道**校验，缺一不可：第一道用 node 的 `vm.Script` 编译页面里的内联脚本
+  （只查语法），第二道用 `predict.js` 整表跑 43,213 行与 Python 逐行比对。曾经模板里多写一个
+  `}`，页面打开是空表，而第二道仍打印 ✓ —— 因为它验的是 `predict.js` 里的预测函数，和页面
+  脚本是两份代码。
 - 比较用的期望值**不能取整**：写 `round(..., 6)` 光期望值自己就带 5e-7 误差，会淹没真差异。
 
 ---
 
 ## 六、提交与协作
 
-- 提交信息用**中文 conventional commits**：`feat(data): 换用 4.3 万行数据集 —— 样本量从 306 提到 43,213`。
-  正文常带具体数字。
+- 提交信息用**中文 conventional commits**：`feat(data): 换用 4.3 万行数据集 —— 样本量从 306
+  提到 43,213`。正文常带具体数字。
 - `data/lianjia_bj_raw.csv`（59 MB）与教材 PDF **不入库**（见 `.gitignore` 内的说明），
   清洗后的建模表入库。
-- README 十二节是实验报告主体，结构与脚本一一对应（§3.1→01、§3.2/3.3→02、§四→03、
-  §7.1→04、§7.2→05、§九→06）。改代码时按这个对应关系找要同步的章节。
+- README 是实验报告主体，结构与脚本一一对应（§3.1→01、§3.2/3.3→02、§四→03、
+  §7.1→04、§7.2→05、§九→06、§十三→10~14）。改代码时按这个对应关系找要同步的章节。
 - 已知局限已诚实写在 README §十一：KFold 有乐观偏差（同小区多套房会跨折，严格该用
-  `GroupKFold`，但原始数据没有小区标识）、留出集被调参看过、部署模型是在全量上重拟合的
-  因而页头 RMSE 来自留出集。**不要把这些说成没有**。
+  `GroupKFold`，但原始数据没有小区标识）、留出集被调参看过、部署模型是在全量上重拟合的因而
+  页头 RMSE 来自留出集。**不要把这些说成没有。**
