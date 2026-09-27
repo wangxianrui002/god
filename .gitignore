@@ -32,3 +32,9 @@ data/_dl/
 
 # CatBoost 训练时会在 CWD 生成 catboost_info/（训练日志，不是产出物）
 catboost_info/
+
+# Claude Code 的会话状态：.claude/worktrees/ 下面是**整份仓库的副本**
+# （含 7.5 MB 建模表、全部图表），一旦被 `git add -A` 带进去，
+# 版本库里就会出现第二份完整仓库。会话状态不属于本项目产出，不入库。
+.claude/
+
