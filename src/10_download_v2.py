@@ -105,7 +105,7 @@ def main() -> int:
 
     assert len(df) == EXPECTED_ROWS, (
         f"{CITY} 行数变了：期望 {EXPECTED_ROWS:,}，实际 {len(df):,} —— "
-        f"上游数据集可能已更新，需要重新核对 README 里的数字")
+        "上游数据集可能已更新，需要重新核对 README 里的数字")
     assert df.shape[1] == EXPECTED_COLS, f"列数变了：{df.shape[1]} != {EXPECTED_COLS}"
 
     df.to_csv(RAW_V2, index=False, encoding="utf-8-sig")
@@ -113,7 +113,7 @@ def main() -> int:
     print(f"\n已写入：{RAW_V2.name}  {len(df):,} 行 × {df.shape[1]} 列（{mb:.1f} MB）")
     print(f"  列：{', '.join(df.columns)}")
     print(f"\n  注：全量 16 城 45 万行不入库（170 MB）。只保留 {CITY} 是为了和第一版"
-          f"\n  的北京数据对照 —— 换数据带来的提升要能和换模型带来的提升分开算。")
+          "\n  的北京数据对照 —— 换数据带来的提升要能和换模型带来的提升分开算。")
     return 0
 
 

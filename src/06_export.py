@@ -146,7 +146,7 @@ def extract_model(pipe: Pipeline, alpha, cv_r2, holdout_r2, holdout_rmse, df) ->
     n_expected = len(NUMERIC) + sum(len(c) for c in categories)
     assert len(coef) == n_expected, (
         f"系数个数 {len(coef)} 与「数值列 + one-hot 列」的维度 {n_expected} 对不上，"
-        f"说明 JS 侧的特征拼接顺序会错位")
+        "说明 JS 侧的特征拼接顺序会错位")
     assert np.isfinite(coef).all() and np.isfinite(model.intercept_)
 
     return {

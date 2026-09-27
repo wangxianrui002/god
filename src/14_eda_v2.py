@@ -128,10 +128,10 @@ def main() -> int:
     print(f"\n  地理维度：{', '.join(f'「{k}」{v:.4f}' for k, v in geo.items())}"
           f"  —— 看着强，但第一版「区县」就有 {V1_DISTRICT_ETA2}，"
           f"\n            最好的一根只高了 {vals[best] - V1_DISTRICT_ETA2:+.4f}。"
-          f"地理信息在第一版就已经吃满，换数据只是切得更细。")
+          "地理信息在第一版就已经吃满，换数据只是切得更细。")
     print(f"  非地理维度：{', '.join(f'「{k}」{v:.4f}' for k, v in non.items())}"
-          f"  —— 这才是真正新的信息轴，"
-          f"\n            而它全部低于 0.05，比第一版的「近地铁」(0.1056) 还不如。")
+          "  —— 这才是真正新的信息轴，"
+          "\n            而它全部低于 0.05，比第一版的「近地铁」(0.1056) 还不如。")
 
     # ---- 关键反差 -----------------------------------------------------
     # 落差要拿**同一个模型**比才有意义：Ridge 换数据是一段，Ridge 换 GBDT 是另一段。
@@ -171,23 +171,23 @@ def main() -> int:
   多出来的解释力来自**地理切分变细**（13 个区县 → 129 个板块 + 6 个环线），
   而不是来自朝向/装修/楼层位置 —— 后者一元 η² 全在 0.05 以下，
   只有树模型按分裂逐层组合，才把它们变成分数。""")
-        print(f"\n  所以两件事的价值量级相当，都要做："
+        print("\n  所以两件事的价值量级相当，都要做："
               f"\n    换数据（同一 Ridge）      {gain_data:+.4f}"
               f"\n    换模型（同一份数据）      {gain_model:+.4f}"
               f"\n    合计                      {gain_data + gain_model:+.4f}"
               f"（{r1:+.4f} → {gb:+.4f}）")
         # 两段都只能在普通 KFold 口径下比 —— 第一版没有小区列，GroupKFold 算不出来。
         # 但「哪个模型算冠军」必须按主口径 GroupKFold 定，否则就是用被高估的尺子选模型。
-        print(f"\n  ⚠ 口径说明：上面两段的**数值**都是普通 KFold（第一版没有小区列，"
-              f"GroupKFold 算不出来）；\n    但「换模型」这一步选的冠军是按**主口径 GroupKFold** 定的："
+        print("\n  ⚠ 口径说明：上面两段的**数值**都是普通 KFold（第一版没有小区列，"
+              "GroupKFold 算不出来）；\n    但「换模型」这一步选的冠军是按**主口径 GroupKFold** 定的："
               f"{gb_name}。\n    普通 KFold 的最大值其实属于「{kf_best_name}」"
               f"（{kf_best:+.4f}，比 {gb_name} 高 {kf_best - gb:+.4f}），\n    "
-              f"但它只在 KFold 上赢、GroupKFold 上反而更低 —— "
-              f"拿它算收益等于用偏乐观的尺子量收益，见 figures/fig10_model_compare_v2.png。")
+              "但它只在 KFold 上赢、GroupKFold 上反而更低 —— "
+              "拿它算收益等于用偏乐观的尺子量收益，见 figures/fig10_model_compare_v2.png。")
 
     setup_chinese_font()
     fig13(df, vals)
-    print(f"\n  图 → figures/fig13_eta2_v2.png")
+    print("\n  图 → figures/fig13_eta2_v2.png")
     return 0
 
 

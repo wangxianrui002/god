@@ -123,7 +123,7 @@ def fig07_compare(res: pd.DataFrame, leak: dict) -> None:
 
     # 注意：SimHei 没有上标 ²（U+00B2），图里一律写 R^2，写成 R² 会变空白方块。
     ax.set_title(f"{len(d)} 个模型的 R^2 对比（含均值基线）\n"
-                 f"最上面那根红柱是反面教材：把「总价_万」混进特征，CV R^2 冲到 "
+                 "最上面那根红柱是反面教材：把「总价_万」混进特征，CV R^2 冲到 "
                  f"{leak['r2']:+.3f} —— 那是作弊不是预测",
                  color=C_CRITICAL, fontsize=12.5, loc="left")
     fig.tight_layout()

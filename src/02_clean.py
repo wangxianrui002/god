@@ -54,15 +54,15 @@ def main() -> int:
     print(f"\n  清洗规则：单价不在 [{PRICE_MIN:,}, {PRICE_MAX:,}] 元/㎡、"
           f"面积不在 [{AREA_MIN:g}, {AREA_MAX:g}] ㎡、总价缺失或非正")
 
-    print(f"\n  为什么要切窗口：全量跨 2002–2018，北京单价中位数在这期间从 3.8 万涨到 6.6 万，")
-    print(f"  全量建模等于让模型用同一套系数解释相差 1.75 倍的两个市场。")
+    print("\n  为什么要切窗口：全量跨 2002–2018，北京单价中位数在这期间从 3.8 万涨到 6.6 万，")
+    print("  全量建模等于让模型用同一套系数解释相差 1.75 倍的两个市场。")
 
     if stats["稀有类别"] or stats["样本不足"]:
         print(f"\n  稀有类别处理（少于 {MIN_CATEGORY_COUNT} 行的取值）：")
         for c, d in stats["样本不足"].items():
             print(f"    {c:6s} " + "  ".join(f"{k}({v}行)" for k, v in d.items())
                   + f"  → 合计不足 {MIN_CATEGORY_COUNT} 行，按缺失处理，"
-                    f"由 Pipeline 归入最常见的一档")
+                    "由 Pipeline 归入最常见的一档")
         for c, d in stats["稀有类别"].items():
             print(f"    {c:6s} " + "  ".join(f"{k}({v}行)" for k, v in d.items())
                   + f"  → 并成「{OTHER}」")
@@ -151,7 +151,7 @@ def main() -> int:
     cols = ["单价", "面积", "室", "总价_万", "小区均价"]
     dropped.head(200)[[c for c in cols if c in dropped.columns]].to_csv(
         RES / "dropped_rows.csv", index=False, encoding="utf-8-sig")
-    print(f"  被剔除记录的抽样 200 条 → results/dropped_rows.csv")
+    print("  被剔除记录的抽样 200 条 → results/dropped_rows.csv")
 
     # ---- 异常值：记录，但不删 -----------------------------------------
     lo, hi = feats[TARGET].quantile([0.25, 0.75])

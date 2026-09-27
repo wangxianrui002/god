@@ -137,7 +137,7 @@ def fig10(res: pd.DataFrame) -> None:
     # SimHei 里既没有上标 ²，也没有真正的减号 U+2212（会变成空白方块），
     # 所以图上一律写 R^2、用 ASCII 的 "-"。这个坑在 04_regression.py 里已经踩过一次。
     ax.set_title("第二版数据：9 个模型的 R^2，以及普通 KFold 的乐观偏差\n"
-                 f"落差 = 普通 KFold - GroupKFold，中位数 "
+                 "落差 = 普通 KFold - GroupKFold，中位数 "
                  f"{d['GroupKFold_落差'].median():.4f}；"
                  "虚线连接同一模型的两套分数",
                  loc="left", fontsize=12.5)
@@ -157,7 +157,7 @@ def fig11(v1_ridge: float, v2_ridge: float, v2_best: float,
     import matplotlib.pyplot as plt
 
     steps = [
-        (f"第一版的 Ridge\n（成交价 4.3 万行）", v1_ridge, MUTED),
+        ("第一版的 Ridge\n（成交价 4.3 万行）", v1_ridge, MUTED),
         (f"＋换数据 {v2_ridge - v1_ridge:+.4f}\n（挂牌价 7.4 万行，\n多出朝向/楼层/小区/环线）",
          v2_ridge - v1_ridge, C_AQUA),
         (f"＋换模型 {v2_best - v2_ridge:+.4f}\n（Ridge → {best_name}）",
@@ -192,7 +192,7 @@ def fig11(v1_ridge: float, v2_ridge: float, v2_best: float,
     ax.legend(loc="lower right", framealpha=0.95)
     ax.set_title("「换数据」和「换模型」各值多少\n"
                  f"换数据 {v2_ridge - v1_ridge:+.4f}，换模型 {v2_best - v2_ridge:+.4f} —— "
-                 f"两段都要，不是二选一",
+                 "两段都要，不是二选一",
                  loc="left", fontsize=12.5)
     fig.tight_layout()
     fig.savefig(FIG / "fig11_data_vs_model.png")
@@ -267,10 +267,10 @@ def main(figs_only: bool = False) -> int:
     worst = res.loc[gap.idxmax()]
     print(f"  中位数 {gap.median():+.4f}   最大 {gap.max():+.4f}（{worst['模型']}）"
           f"   最小 {gap.min():+.4f}")
-    print(f"\n  含义：同一小区的房子高度相似，普通 KFold 把它们切到训练/验证两侧，"
-          f"\n  模型等于「见过邻居家的房子」。按小区整组切分后，R^2 平均掉 "
+    print("\n  含义：同一小区的房子高度相似，普通 KFold 把它们切到训练/验证两侧，"
+          "\n  模型等于「见过邻居家的房子」。按小区整组切分后，R^2 平均掉 "
           f"{gap.median():.4f}，"
-          f"\n  这才是对「预测一个**没见过的小区**的房子」的诚实估计。")
+          "\n  这才是对「预测一个**没见过的小区**的房子」的诚实估计。")
 
     # ---- 逐折明细 -----------------------------------------------------
     # README §13.3 引用了「XGBoost 每一折都低、且折间极差是别人 3 倍」这个结论。
@@ -297,8 +297,8 @@ def main(figs_only: bool = False) -> int:
         print(f"\n  「{worst_fold}」的折间极差 {rng.iloc[0]:.4f}，"
               f"是其余 {len(others)} 个模型的 {rng.iloc[0] / others.median():.1f} 倍"
               f"（中位 {others.median():.4f}）。")
-        print(f"  同一个模型换一折就抖这么多，说明它在这份数据上**不稳定** ——"
-              f"\n  它的均值不能和其它模型直接比名次。")
+        print("  同一个模型换一折就抖这么多，说明它在这份数据上**不稳定** ——"
+              "\n  它的均值不能和其它模型直接比名次。")
 
     # ---- 换数据 vs 换模型 ---------------------------------------------
     print(f"\n{'=' * 78}")
@@ -313,11 +313,11 @@ def main(figs_only: bool = False) -> int:
         v1_best_name = s1.loc[s1["5折CV_R2"].idxmax(), "模型"]
         gain_data = lin["KFold_CV_R2"] - v1_ridge
         gain_model = best["KFold_CV_R2"] - lin["KFold_CV_R2"]
-        print(f"  同一个 Ridge（模型不变，只换数据）")
+        print("  同一个 Ridge（模型不变，只换数据）")
         print(f"    第一版 KFold R^2  {v1_ridge:+.4f}")
         print(f"    第二版 KFold R^2  {lin['KFold_CV_R2']:+.4f}")
         print(f"    ── 换数据净收益    {gain_data:+.4f}")
-        print(f"\n  同一份第二版数据（数据不变，只换模型）")
+        print("\n  同一份第二版数据（数据不变，只换模型）")
         print(f"    线性回归          {lin['KFold_CV_R2']:+.4f}")
         print(f"    {best['模型']:14s}  {best['KFold_CV_R2']:+.4f}")
         print(f"    ── 换模型净收益    {gain_model:+.4f}")
@@ -327,10 +327,10 @@ def main(figs_only: bool = False) -> int:
         print(f"\n  换个角度看：换模型（{gain_model:+.4f}）"
               f"{'大于' if gain_model > gain_data else '小于'}"
               f"换数据（{gain_data:+.4f}）。第一版 README 的结论是"
-              f"「缺的是数据不是算法」——")
-        print(f"  换数据确实有效，但**模型侧的余量同样可观**："
-              f"线性模型吃不下的交互项，")
-        print(f"  梯度提升树吃得下。两件事都要做，不是二选一。")
+              "「缺的是数据不是算法」——")
+        print("  换数据确实有效，但**模型侧的余量同样可观**："
+              "线性模型吃不下的交互项，")
+        print("  梯度提升树吃得下。两件事都要做，不是二选一。")
         have_v1 = True
     else:
         print("  未找到 results/model_scores.csv（第一版结果），跳过对照。")
@@ -341,18 +341,18 @@ def main(figs_only: bool = False) -> int:
     # ---- 出图 ---------------------------------------------------------
     setup_chinese_font()
     fig10(res)
-    print(f"\n  图 → figures/fig10_model_compare_v2.png")
+    print("\n  图 → figures/fig10_model_compare_v2.png")
     if have_v1:
         fig11(v1_ridge, float(lin["KFold_CV_R2"]), float(best["KFold_CV_R2"]),
               v1_best, v1_best_name, best["模型"])
-        print(f"  图 → figures/fig11_data_vs_model.png")
+        print("  图 → figures/fig11_data_vs_model.png")
 
     print(f"\n{'=' * 78}")
     if figs_only:
         print("仅重画图，结果表未改动")
     else:
         print(f"已写入：results/model_scores_v2.csv（{len(res)} 行）")
-        print(f"        results/model_folds_v2.csv（逐折明细）")
+        print("        results/model_folds_v2.csv（逐折明细）")
     print(f"{'=' * 78}")
     return 0
 

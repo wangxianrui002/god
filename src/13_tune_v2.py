@@ -185,11 +185,11 @@ def main(figs_only: bool = False) -> int:
             print(f"\n  ⚠ 主表冠军是「{top['模型']}」"
                   f"（GroupKFold {top['GroupKFold_CV_R2']:+.4f}），但它**不在**本次调参范围内。")
             if "CatBoost" in str(top["模型"]):
-                print(f"    原因是 CatBoost 单次拟合约 20 秒（要对「板块」的 129 个取值"
+                print("    原因是 CatBoost 单次拟合约 20 秒（要对「板块」的 129 个取值"
                       f"\n    算有序目标统计），{N_ITER} 组 × 5 折要跑几十分钟。"
-                      f"\n    所以报告里必须写明：**这个冠军用的是保守默认超参，没有调过**。")
+                      "\n    所以报告里必须写明：**这个冠军用的是保守默认超参，没有调过**。")
             else:
-                print(f"    需要在 SPACES 里补上它的搜索空间。")
+                print("    需要在 SPACES 里补上它的搜索空间。")
 
     # ---- 这个提升算不算「提升」？ ------------------------------------
     # 唯一的判据是「和折间抖动比」。0.0008 这种量级如果小于折间标准差，
@@ -206,18 +206,18 @@ def main(figs_only: bool = False) -> int:
         print(f"  最优参数在 GroupKFold 上的净提升：{lo_g:+.4f} ~ {hi_g:+.4f}")
         print(f"  被调模型的 GroupKFold 折间标准差均值：{noise:.4f}")
         if abs(lo_g) < noise and abs(hi_g) < noise:
-            print(f"\n  两者一比就清楚了：**提升比噪声还小。**")
-            print(f"  换句话说，「调参」在这份数据上没有买到分数 —— 默认超参已经贴着上限。")
-            print(f"  这不是失败，是一条结论：**瓶颈在特征，不在超参。**")
-            print(f"  和 §13.6 对得上：新字段的一元解释力接近 0，价值全在交互里，")
-            print(f"  而交互是树模型自己分裂出来的，调叶子数/学习率并不会多造出交互。")
+            print("\n  两者一比就清楚了：**提升比噪声还小。**")
+            print("  换句话说，「调参」在这份数据上没有买到分数 —— 默认超参已经贴着上限。")
+            print("  这不是失败，是一条结论：**瓶颈在特征，不在超参。**")
+            print("  和 §13.6 对得上：新字段的一元解释力接近 0，价值全在交互里，")
+            print("  而交互是树模型自己分裂出来的，调叶子数/学习率并不会多造出交互。")
         else:
-            print(f"\n  提升大于噪声，可以认为是真实收益。")
+            print("\n  提升大于噪声，可以认为是真实收益。")
 
     setup_chinese_font()
     fig12(res, noise)
-    print(f"\n  图 → figures/fig12_tuning_v2.png")
-    print(f"  表 → results/tuning_results_v2.csv")
+    print("\n  图 → figures/fig12_tuning_v2.png")
+    print("  表 → results/tuning_results_v2.csv")
     return 0
 
 

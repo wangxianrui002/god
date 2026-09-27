@@ -68,7 +68,7 @@ def download() -> bytes | None:
                 if len(data) < MIN_BYTES:
                     raise ValueError(
                         f"只拿到 {len(data):,} 字节，远小于预期的 ~58 MB，"
-                        f"多半是错误页或代理限流")
+                        "多半是错误页或代理限流")
                 print(f" {len(data):,} 字节，{dt:.1f} 秒（{len(data)/dt/1e6:.1f} MB/s）")
                 return data
             except Exception as exc:  # noqa: BLE001 - 网络异常种类多，统一重试

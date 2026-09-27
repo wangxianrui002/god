@@ -84,7 +84,7 @@ def main() -> int:
     print(f"\n{'=' * 68}")
     print("新地理特征对目标的方差解释率 eta^2")
     print(f"{'=' * 68}")
-    print(f"  （第一版的「区县」13 个取值，eta^2 = 0.627，是当时最强的单一特征）")
+    print("  （第一版的「区县」13 个取值，eta^2 = 0.627，是当时最强的单一特征）")
     for c in ["板块", "环线", "朝向", "装修", "楼层位置"]:
         v = eta2(feats, c)
         print(f"  {c:6s} {feats[c].nunique():>3} 个取值   eta^2 = {v:.3f}")
@@ -140,7 +140,7 @@ def main() -> int:
     assert not leaked, f"建模表里混进了必须排除的列：{leaked}"
     assert GROUP_COL not in feature_columns(), (
         f"「{GROUP_COL}」是分组列，绝不能出现在特征里 —— "
-        f"同小区的价格天然含本行信息，那是 target encoding 级别的泄露")
+        "同小区的价格天然含本行信息，那是 target encoding 级别的泄露")
     assert not [c for c in clean.columns if c in AUDIT_LEAKS], "演示用的泄露列漏进了建模表"
     assert TARGET not in feature_columns(), "目标列不能出现在特征清单里"
 
@@ -152,13 +152,13 @@ def main() -> int:
     print(f"  目标 1 列：{TARGET}")
     print(f"  分组 1 列：{GROUP_COL}（{clean[GROUP_COL].nunique():,} 个小区，"
           f"平均 {len(clean) / clean[GROUP_COL].nunique():.1f} 套/小区）"
-          f" —— 只用于 GroupKFold，不进特征")
+          " —— 只用于 GroupKFold，不进特征")
 
     cols = [c for c in [TARGET, "面积", "室", "楼层位置", "朝向", "板块", "总价_万"]
             if c in dropped.columns]
     dropped.head(200)[cols].to_csv(RES / "dropped_rows_v2.csv", index=False,
                                    encoding="utf-8-sig")
-    print(f"  被剔除记录的抽样 → results/dropped_rows_v2.csv")
+    print("  被剔除记录的抽样 → results/dropped_rows_v2.csv")
 
     # ---- 异常值：记录，但不删 -----------------------------------------
     lo, hi = feats[TARGET].quantile([0.25, 0.75])

@@ -214,7 +214,7 @@ def fig05_leak_screen(screen: pd.DataFrame) -> None:
     tot = float(d.loc[d["特征"] == "总价_万", "单特征CV_R2"].squeeze())
     ax.set_title("泄露判据：单特征 CV R^2（不是相关系数）\n"
                  f"红边 = 已知的泄露列。「小区均价」被拦住；「总价_万」只有 {tot:+.3f}，"
-                 f"判据放它过去了",
+                 "判据放它过去了",
                  fontsize=12.5, loc="left")
     fig.tight_layout()
     fig.savefig(FIG / "fig05_leak_screen.png")
@@ -269,7 +269,7 @@ def fig06_simpson(df: pd.DataFrame) -> None:
     ax.set_title("拆到各区县内部  有正有负，方向都不统一\n"
                  f"（扣掉区县均值后总体只剩 r = {r_within:+.3f}）", fontsize=11.5)
 
-    fig.suptitle(f"房龄的「越老越贵」多半是区县差异伪装的"
+    fig.suptitle("房龄的「越老越贵」多半是区县差异伪装的"
                  f"（核心城区老而贵、远郊新而便宜），各区县 r 从 {per.min():+.2f} 到 {per.max():+.2f}",
                  y=1.02, color=INK)
     fig.tight_layout()
@@ -298,7 +298,7 @@ def main() -> int:
         print(f"  {k:8s} {v:+.3f}")
     print(f"\n  {GROUP}（类别变量）η² = {eta2(df):.3f}   <- 唯一真正有解释力的特征")
     print(f"  共 {df[GROUP].nunique()} 个区县，全部保留做 one-hot —— "
-          f"取值少、每个取值都有上千条样本，不需要做「取前 N 个 + 其他」的合并。")
+          "取值少、每个取值都有上千条样本，不需要做「取前 N 个 + 其他」的合并。")
 
     print("\n单特征泄露筛查：")
     screen = screen_single_features(feats.drop(columns=[TARGET]), feats[TARGET])

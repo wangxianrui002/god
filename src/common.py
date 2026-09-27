@@ -140,7 +140,6 @@ LEAK_R2_THRESHOLD = 0.35
 # 绘图样式（配色取自 dataviz 技能里已通过校验器的调色板）
 # --------------------------------------------------------------------------
 C_BLUE, C_ORANGE, C_AQUA = "#2a78d6", "#eb6834", "#1baf7a"
-C_YELLOW, C_MAGENTA = "#eda100", "#e87ba4"
 C_CRITICAL = "#d03b3b"
 SURFACE, INK, INK_2, MUTED = "#fcfcfb", "#0b0b0b", "#52514e", "#898781"
 GRID, BASELINE, MIDPOINT = "#e1e0d9", "#c3c2b7", "#f0efec"
@@ -222,7 +221,7 @@ CATEGORICAL = ["区县", "楼层位置", "装修", "建筑类型", "建筑结构
 # 只用来剔除明显是录入错误的记录（原始数据里最小 136 元/㎡）。
 PRICE_MIN, PRICE_MAX = 5_000, 200_000
 AREA_MIN, AREA_MAX = 10.0, 1_000.0
-YEAR_MIN, YEAR_MAX = 1949, 2017
+YEAR_MIN = 1949           # 房龄的基准年，见 build_features()
 LADDER_MAX = 10.0        # 梯户比 >10 的视为录入错误（实测最大 10,009,400）
 
 
