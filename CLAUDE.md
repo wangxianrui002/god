@@ -16,12 +16,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 要求 | 本项目如何满足 | 证据 |
 |---|---|---|
 | 三种以上模型 | 第一版 **5 个**（`LinearRegression` / `Ridge` / `Ridge+Poly2` / `KNN` 取自教程 §6.1，外加 `DummyRegressor` 均值基线当及格线）；第二版 **9 个**（4 个教程模型 + `HistGBR` / `LightGBM` / `XGBoost` / `CatBoost` + `StackingRegressor`） | `make_models()`；`results/model_scores.csv`、`model_scores_v2.csv` |
-| 数据量 1W+ | 第一版 **43,213** 行（4.3 倍）；第二版 **73,625** 行（7.4 倍） | `data/*_clean.csv`；README §3.2、§13.1 |
-| 模型选用合理 | 第一版只挑教程讲过的算法；第二版**按文献调研**选 GBDT 家族 + 堆叠（`MODEL_SELECTION.md`），且四个 GBDT 全部实测、用自己数据说话而非照搬文献结论；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | `MODEL_SELECTION.md`；README §9.2、§13.2 |
-| 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `make_group_cv()`；README §五、§7.2、§9.3、§13.4 |
-| 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868）/ **「换数据 +0.0917」与「换模型 +0.0840」分开算** | README §四、§五、§七、§13；`results/*.csv` |
+| 数据量 1W+ | 第一版 **43,213** 行（4.3 倍）；第二版 **73,625** 行（7.4 倍） | `data/*_clean.csv`；README §四、§九 |
+| 模型选用合理 | 第一版只挑教程讲过的算法；第二版**按文献调研**选 GBDT 家族 + 堆叠（`MODEL_SELECTION.md`），且四个 GBDT 全部实测、用自己数据说话而非照搬文献结论；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | `MODEL_SELECTION.md`；README §八、§九 |
+| 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `make_group_cv()`；README §五、§七、§八、§九 |
+| 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868）/ **「换数据 +0.0917」与「换模型 +0.0840」分开算** | README §三、§五、§七、§九；`results/*.csv` |
 | 展示效果良好 | 13 张图 + **自包含预测网页**（双击即开、离线可用、16 个输入项、3 张实时图） | `figures/fig01~13`；`web/index.html` |
-| 实验讲解清晰 | README 十三节正文 + `MODEL_SELECTION.md`（选型依据）；关键取舍都写在源码注释里 | `README.md`、`MODEL_SELECTION.md` |
+| 实验讲解清晰 | README 十一节正文 + `MODEL_SELECTION.md`（选型依据）；关键取舍都写在源码注释里 | `README.md`、`MODEL_SELECTION.md` |
 
 **最有价值的结论（答辩时的主线）**：目标是单价而非总价，所以面积几乎不含信息
 （`corr(面积, 单价) = -0.219`，而 `corr(面积, 总价) = +0.688`）；单价六成以上由区县/板块决定
@@ -49,7 +49,7 @@ uv run python src/05_tune.py           # 网格搜索调参 → fig09           
 uv run python src/06_export.py         # 导出参数 + 渲染网页 + node 校验       秒级
 ```
 
-第二版（换数据 + GBDT，README §十三）：
+第二版（换数据 + GBDT，README §九）：
 
 ```bash
 uv run python src/10_download_v2.py    # 下载挂牌数据集，约 26 MB，需联网
@@ -84,7 +84,7 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 「换数据」和「换模型」各值多少才算得出来。
 
 ```
-第一版 —— 链家成交数据 + 教程里的线性模型，README §一~§十二
+第一版 —— 链家成交数据 + 教程里的线性模型，README §一~§八
 01_download  → data/lianjia_bj_raw.csv     318,851×26   (59 MB，不入库)
 02_clean     → data/lianjia_bj_clean.csv    43,213×17   (3.8 MB，入库；不含任何价格字段)
              → results/leak_screen.csv, results/dropped_rows.csv
@@ -93,7 +93,7 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 05_tune      → figures/fig09, results/tuning_results.csv
 06_export    → web/model.json, web/index.html, results/app_test_cases.csv
 
-第二版 —— Kaggle 挂牌数据 + GBDT 家族，README §十三
+第二版 —— Kaggle 挂牌数据 + GBDT 家族，README §九
 10_download_v2 → data/house_v2_raw.csv      73,685×22   (26 MB，不入库)
 11_prepare_v2  → data/house_v2_clean.csv    73,625×18   (7.5 MB，入库；16 特征 + 单价 + 小区)
                → results/leak_screen_v2.csv, results/dropped_rows_v2.csv
@@ -253,8 +253,8 @@ web/model.json     ─┘
   提到 43,213`。正文常带具体数字。
 - `data/lianjia_bj_raw.csv`（59 MB）与教材 PDF **不入库**（见 `.gitignore` 内的说明），
   清洗后的建模表入库。
-- README 是实验报告主体，结构与脚本一一对应（§3.1→01、§3.2/3.3→02、§四→03、
-  §7.1→04、§7.2→05、§九→06、§十三→10~14）。改代码时按这个对应关系找要同步的章节。
-- 已知局限已诚实写在 README §十一：KFold 有乐观偏差（同小区多套房会跨折，严格该用
+- README 是实验报告主体，只保留结论与数字；**结构与脚本的对应关系看本文件 §3.1**
+  （README 已压到 100 行以内，不再逐脚本展开）。改代码时按 §3.1 的产出物表找要同步的数字。
+- 已知局限已诚实写在 README §十：KFold 有乐观偏差（同小区多套房会跨折，严格该用
   `GroupKFold`，但原始数据没有小区标识）、留出集被调参看过、部署模型是在全量上重拟合的因而
   页头 RMSE 来自留出集。**不要把这些说成没有。**

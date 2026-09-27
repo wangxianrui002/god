@@ -272,7 +272,7 @@ def main() -> int:
       - 唯一的边界在右边：alpha 超过 {a_under:g} 附近才开始塌，到 {ALPHAS[-1]:g} 掉到 {a_te[-1]:.3f}，
         那才是欠拟合 —— 惩罚大到把真实信号也压掉了。
     所以「过拟合」不是线性模型的固有病，是「模型复杂度 ÷ 样本量」不够小时的病。
-    这和 04 里 Ridge+Poly2 的结论翻转是同一件事的两面（见 README 4.3）。
+    这和 04 里 Ridge+Poly2 的结论翻转是同一件事的两面（见 README §七）。
   · 多项式次数那一栏，网格选的是 {r2['best_params'].get('poly__degree')} 次 + alpha={r2['best_params'].get('model__alpha'):g}，
     CV R² {r2['best_score']:+.4f}，比不加多项式高 {(r2['best_score'] - base_ridge) * 100:+.1f} 个百分点。
     注意它比 04 里固定 alpha=1 的 Ridge+Poly2（+0.696）还高一点 ——

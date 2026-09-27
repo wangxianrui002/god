@@ -35,7 +35,7 @@ from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK_2,
                     MUTED, RES, SURFACE, setup_chinese_font)
 from common_v2 import GROUP_COL, eta2, load_clean
 
-# 第一版的实测值（results/ 里没有存 η²，这里是 README §4.1 记载的数字）
+# 第一版的实测值（results/ 里没有存 η²，这里是 README §三 记载的数字）
 V1_DISTRICT_ETA2 = 0.627
 V1_NOTE = "第一版最强特征\n「区县」13 个取值"
 
@@ -143,7 +143,7 @@ def main() -> int:
         r2 = float(s2.loc[s2["模型"].str.contains("岭回归 Ridge"), "KFold_CV_R2"].iloc[0])
         # 「换模型」这一步取**主口径 GroupKFold 的冠军**（HistGBR），不取 KFold 的最大值。
         # KFold 的最大值是堆叠，但它只在普通 KFold 上赢（见 12 的 fig10），
-        # 拿它来讲「换模型值多少」等于用被高估的尺子量收益。这里必须和 README §13.5 对齐。
+        # 拿它来讲「换模型值多少」等于用被高估的尺子量收益。这里必须和 README §九 对齐。
         champ = s2.loc[s2["GroupKFold_CV_R2"].idxmax(), "模型"]
         gb = float(s2.loc[s2["GroupKFold_CV_R2"].idxmax(), "KFold_CV_R2"])
         gb_name = champ
