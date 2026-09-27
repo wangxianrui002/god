@@ -1,0 +1,91 @@
+﻿模型,方案,折,R2
+均值基线 DummyRegressor,KFold 5 折,1,-0.00011074479316186547
+均值基线 DummyRegressor,KFold 5 折,2,-0.0003908829030332406
+均值基线 DummyRegressor,KFold 5 折,3,-0.00012592378838127694
+均值基线 DummyRegressor,KFold 5 折,4,-1.4827588115107204e-06
+均值基线 DummyRegressor,KFold 5 折,5,-1.3774794187071393e-05
+均值基线 DummyRegressor,GroupKFold 5 折（按小区）,1,-9.707003302961148e-05
+均值基线 DummyRegressor,GroupKFold 5 折（按小区）,2,-0.007119651448158626
+均值基线 DummyRegressor,GroupKFold 5 折（按小区）,3,-0.012319193449936927
+均值基线 DummyRegressor,GroupKFold 5 折（按小区）,4,-0.007707709556738163
+均值基线 DummyRegressor,GroupKFold 5 折（按小区）,5,-0.006376121922119449
+线性回归 LinearRegression,KFold 5 折,1,0.7671082535996648
+线性回归 LinearRegression,KFold 5 折,2,0.763682785721828
+线性回归 LinearRegression,KFold 5 折,3,0.7770007741866278
+线性回归 LinearRegression,KFold 5 折,4,0.7725811094540157
+线性回归 LinearRegression,KFold 5 折,5,0.7680928608794009
+线性回归 LinearRegression,GroupKFold 5 折（按小区）,1,0.7613346604341484
+线性回归 LinearRegression,GroupKFold 5 折（按小区）,2,0.7725809588221985
+线性回归 LinearRegression,GroupKFold 5 折（按小区）,3,0.7356807535753103
+线性回归 LinearRegression,GroupKFold 5 折（按小区）,4,0.7718549707915008
+线性回归 LinearRegression,GroupKFold 5 折（按小区）,5,0.7559130941119269
+岭回归 Ridge,KFold 5 折,1,0.7670944403696884
+岭回归 Ridge,KFold 5 折,2,0.763714988615053
+岭回归 Ridge,KFold 5 折,3,0.7769723263176316
+岭回归 Ridge,KFold 5 折,4,0.7725846312721428
+岭回归 Ridge,KFold 5 折,5,0.7681024308531061
+岭回归 Ridge,GroupKFold 5 折（按小区）,1,0.7612823647772627
+岭回归 Ridge,GroupKFold 5 折（按小区）,2,0.7726483674777613
+岭回归 Ridge,GroupKFold 5 折（按小区）,3,0.7359222846075937
+岭回归 Ridge,GroupKFold 5 折（按小区）,4,0.771697415296928
+岭回归 Ridge,GroupKFold 5 折（按小区）,5,0.7559221869675995
+K近邻 KNN(k=5),KFold 5 折,1,0.6689792546462773
+K近邻 KNN(k=5),KFold 5 折,2,0.6819701000208171
+K近邻 KNN(k=5),KFold 5 折,3,0.6703396470641463
+K近邻 KNN(k=5),KFold 5 折,4,0.6760666446436603
+K近邻 KNN(k=5),KFold 5 折,5,0.6717299879803788
+K近邻 KNN(k=5),GroupKFold 5 折（按小区）,1,0.5808571479122207
+K近邻 KNN(k=5),GroupKFold 5 折（按小区）,2,0.636880210904391
+K近邻 KNN(k=5),GroupKFold 5 折（按小区）,3,0.5928924815460825
+K近邻 KNN(k=5),GroupKFold 5 折（按小区）,4,0.5771743095253069
+K近邻 KNN(k=5),GroupKFold 5 折（按小区）,5,0.5971763631474378
+直方图梯度提升 HistGBR,KFold 5 折,1,0.8510845157826409
+直方图梯度提升 HistGBR,KFold 5 折,2,0.8496823658277146
+直方图梯度提升 HistGBR,KFold 5 折,3,0.8596787589765458
+直方图梯度提升 HistGBR,KFold 5 折,4,0.8527964331357804
+直方图梯度提升 HistGBR,KFold 5 折,5,0.8550587717252053
+直方图梯度提升 HistGBR,GroupKFold 5 折（按小区）,1,0.8079646844860892
+直方图梯度提升 HistGBR,GroupKFold 5 折（按小区）,2,0.8299543812636466
+直方图梯度提升 HistGBR,GroupKFold 5 折（按小区）,3,0.8002985969610326
+直方图梯度提升 HistGBR,GroupKFold 5 折（按小区）,4,0.820700143813864
+直方图梯度提升 HistGBR,GroupKFold 5 折（按小区）,5,0.8083665375306818
+LightGBM,KFold 5 折,1,0.8511595728987045
+LightGBM,KFold 5 折,2,0.8482003678093544
+LightGBM,KFold 5 折,3,0.8603111192167336
+LightGBM,KFold 5 折,4,0.8537900205771547
+LightGBM,KFold 5 折,5,0.8563893277934203
+LightGBM,GroupKFold 5 折（按小区）,1,0.8023774782582607
+LightGBM,GroupKFold 5 折（按小区）,2,0.827768761817058
+LightGBM,GroupKFold 5 折（按小区）,3,0.8002278239267478
+LightGBM,GroupKFold 5 折（按小区）,4,0.8189145836736413
+LightGBM,GroupKFold 5 折（按小区）,5,0.8066019121876951
+XGBoost,KFold 5 折,1,0.85213702917099
+XGBoost,KFold 5 折,2,0.8478376865386963
+XGBoost,KFold 5 折,3,0.858329176902771
+XGBoost,KFold 5 折,4,0.7697906494140625
+XGBoost,KFold 5 折,5,0.8301520347595215
+XGBoost,GroupKFold 5 折（按小区）,1,0.7965236306190491
+XGBoost,GroupKFold 5 折（按小区）,2,0.7863847613334656
+XGBoost,GroupKFold 5 折（按小区）,3,0.715083122253418
+XGBoost,GroupKFold 5 折（按小区）,4,0.8001599907875061
+XGBoost,GroupKFold 5 折（按小区）,5,0.7949063181877136
+CatBoost,KFold 5 折,1,0.8057317332939149
+CatBoost,KFold 5 折,2,0.8003484908405935
+CatBoost,KFold 5 折,3,0.8047113434689239
+CatBoost,KFold 5 折,4,0.8044138275881346
+CatBoost,KFold 5 折,5,0.8030823521587971
+CatBoost,GroupKFold 5 折（按小区）,1,0.7809702151279562
+CatBoost,GroupKFold 5 折（按小区）,2,0.8038981017909973
+CatBoost,GroupKFold 5 折（按小区）,3,0.7735711106030331
+CatBoost,GroupKFold 5 折（按小区）,4,0.7599154171860683
+CatBoost,GroupKFold 5 折（按小区）,5,0.7764445474702206
+堆叠 GBDT×4 → Ridge,KFold 5 折,1,0.8531826263803607
+堆叠 GBDT×4 → Ridge,KFold 5 折,2,0.8511740581336297
+堆叠 GBDT×4 → Ridge,KFold 5 折,3,0.8619972544371378
+堆叠 GBDT×4 → Ridge,KFold 5 折,4,0.8537800714239067
+堆叠 GBDT×4 → Ridge,KFold 5 折,5,0.8564668476095719
+堆叠 GBDT×4 → Ridge,GroupKFold 5 折（按小区）,1,0.8052853008212629
+堆叠 GBDT×4 → Ridge,GroupKFold 5 折（按小区）,2,0.8300906637444858
+堆叠 GBDT×4 → Ridge,GroupKFold 5 折（按小区）,3,0.7983679183541019
+堆叠 GBDT×4 → Ridge,GroupKFold 5 折（按小区）,4,0.8210263871378883
+堆叠 GBDT×4 → Ridge,GroupKFold 5 折（按小区）,5,0.8074431709360692

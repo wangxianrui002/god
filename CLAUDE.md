@@ -19,17 +19,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 要求 | 本项目如何满足 | 证据 |
 |---|---|---|
-| 三种以上模型 | **5 个**：`LinearRegression` / `Ridge` / `Ridge+Poly2` / `KNN` 四个取自教程 §6.1，外加 `DummyRegressor` 均值基线当及格线（R²≈0，任何模型低于它都算白做） | `src/common.py` `make_models()`；`results/model_scores.csv` |
-| 数据量 1W+ | 原始 **318,851** 行 → 建模表 **43,213** 行，是要求的 4.3 倍 | `data/lianjia_bj_clean.csv`；README §3.2 |
-| 模型选用合理 | 只挑教程讲过的回归算法，不引入教程外模型；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | README §9.2 |
-| 计算过程科学 | 5 折交叉验证 + `GridSearchCV` 网格搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验 | `src/common.py` `guard_no_leakage()`；README §五、§7.2、§9.3 |
-| 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868） | README §四、§五、§七；`results/*.csv` |
-| 展示效果良好 | 9 张图 + **自包含预测网页**（双击即开、离线可用、16 个输入项、3 张实时图） | `figures/fig01~09`；`web/index.html` |
-| 实验讲解清晰 | README 十二节正文；关键取舍都写在 `src/common.py` 的注释里，不另设文档 | `README.md` |
+| 三种以上模型 | 第一版 **5 个**（`LinearRegression` / `Ridge` / `Ridge+Poly2` / `KNN` 取自教程 §6.1，外加 `DummyRegressor` 均值基线当及格线）；第二版 **9 个**（4 个教程模型 + `HistGBR` / `LightGBM` / `XGBoost` / `CatBoost` + `StackingRegressor` 堆叠集成） | `src/common.py` / `src/common_v2.py` 的 `make_models()`；`results/model_scores.csv`、`results/model_scores_v2.csv` |
+| 数据量 1W+ | 第一版建模表 **43,213** 行（4.3 倍）；第二版 **73,625** 行（7.4 倍） | `data/lianjia_bj_clean.csv`、`data/house_v2_clean.csv`；README §3.2、§13.1 |
+| 模型选用合理 | 第一版只挑教程讲过的算法；第二版**按文献调研**选 GBDT 家族 + 堆叠（`MODEL_SELECTION.md`），且四个 GBDT 全部实测、用自己数据说话而非照搬文献结论；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | `MODEL_SELECTION.md`；README §9.2、§13.2 |
+| 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `src/common_v2.py` `make_group_cv()`；README §五、§7.2、§9.3、§13.4 |
+| 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868）/ **「换数据 +0.0917」与「换模型 +0.0840」分开算** | README §四、§五、§七、§13；`results/*.csv` |
+| 展示效果良好 | 13 张图 + **自包含预测网页**（双击即开、离线可用、16 个输入项、3 张实时图） | `figures/fig01~13`；`web/index.html` |
+| 实验讲解清晰 | README 十三节正文 + `MODEL_SELECTION.md`（选型依据）；关键取舍都写在源码注释里 | `README.md`、`MODEL_SELECTION.md` |
 
 **最有价值的结论（答辩时的主线）**：目标是单价而非总价，所以面积几乎不含信息
-（`corr(面积, 单价) = -0.219`，而 `corr(面积, 总价) = +0.688`）；单价六成以上由区县决定
-（η² = 0.627）；R² 停在 0.70 是因为数据没采集学区/朝向/楼层，**缺的是数据不是算法**。
+（`corr(面积, 单价) = -0.219`，而 `corr(面积, 总价) = +0.688`）；单价六成以上由区县/板块决定
+（η² = 0.627 / 0.641）；R² 停在 0.70 是因为数据没采集学区/朝向/楼层。
+
+**第二版把「缺的是数据不是算法」验证了，也修正了它**：换数据确实涨 9 个点（+0.0917），
+但换模型同样涨 8 个点（+0.0840）—— 因为线性模型**吃不下特征交互**，
+而新字段（朝向/装修/楼层）的一元解释力低得惊人（η² 0.002~0.037），
+价值全在组合里。**两件事必须一起做。**
 
 ---
 
@@ -50,10 +55,24 @@ uv run python src/05_tune.py           # 网格搜索调参 → fig09           
 uv run python src/06_export.py         # 导出参数 + 渲染网页 + node 校验       秒级
 ```
 
-- **`05_tune.py` 是唯一慢的**：43,213 行上跑 KNN 网格搜索，每次预测都要算一遍全表距离，
-  已开 `n_jobs=-1` 并行，仍需几分钟。**别用默认 2 分钟超时去跑它**，会中途被杀。
-  （README §二与源码注释对距离次数的说法不一致 —— 源码注释更贴近实测。）
-- 六个脚本都**幂等**，随便重复跑。
+第二版（换数据 + GBDT，README §十三）：
+
+```bash
+uv run python src/10_download_v2.py    # 下载挂牌数据集，约 26 MB，需联网
+uv run python src/11_prepare_v2.py     # 清洗 + 特征工程 → data/house_v2_clean.csv
+uv run python src/12_model_compare.py  # 9 个模型 × 2 套 CV                   ★ 约 10 分钟
+uv run python src/12_model_compare.py --figs-only   # 只重画图，读已落盘的结果表
+uv run python src/13_tune_v2.py        # GroupKFold 口径随机搜索   ★ 8 分钟（LightGBM 376 s）
+uv run python src/13_tune_v2.py --figs-only         # 只重画图，读已落盘的搜索结果
+uv run python src/14_eda_v2.py         # 新字段一元解释力 η²                 秒级
+```
+
+- **`05_tune.py` 和 `12_model_compare.py` 是慢的**。前者在 43,213 行上跑 KNN 网格搜索，
+  每次预测都要算一遍全表距离，已开 `n_jobs=-1`，仍需几分钟；后者里的堆叠集成要跑
+  内层 5 折 × 4 个基模型 × 外层 5 折，约 10 分钟。**别用默认 2 分钟超时去跑它们**。
+  距离次数由 `knn_distances()` 按实际行数算出（≈1.8×10¹⁰），**不写死** ——
+  这个数字以前在 README 和源码里差 3 个数量级（PLAN.md P0-4），现在统一到同一个定义。
+- 所有脚本都**幂等**，随便重复跑。
 - `06_export.py` 需要 **node**；没装时两道校验都打印 `[跳过]` 并继续，但会明确提示
   「网页逻辑未经验证」。
 - 没有测试框架、没有 lint 配置。唯一的自动化校验是 `06_export.py` 里的两道 node 检查
@@ -65,9 +84,11 @@ uv run python src/06_export.py         # 导出参数 + 渲染网页 + node 校�
 
 ## 三、架构
 
-### 3.1 六段式流水线
+### 3.1 两套流水线：第一版（`01`~`06`）与第二版（`10`~`14`）
 
 每个脚本只做一件事，产出物落盘，下一个脚本读盘。因此任何一段都可以单独重跑。
+
+**第一版** —— 链家成交数据 + 教程里的线性模型，README §一~§十二：
 
 ```
 01_download  → data/lianjia_bj_raw.csv     318,851×26   (59 MB，不入库)
@@ -78,6 +99,31 @@ uv run python src/06_export.py         # 导出参数 + 渲染网页 + node 校�
 05_tune      → figures/fig09, results/tuning_results.csv
 06_export    → web/model.json, web/index.html, results/app_test_cases.csv
 ```
+
+**第二版** —— Kaggle 挂牌数据 + GBDT 家族，README §十三。
+**用 `1x` 编号是为了让两套流水线并存但不混淆**：第一版的产出物一个都没动，
+「换数据」和「换模型」各值多少才算得出来（`results/model_scores.csv` 是第一版的基线）。
+
+```
+10_download_v2 → data/house_v2_raw.csv      73,685×22   (26 MB，不入库)
+11_prepare_v2  → data/house_v2_clean.csv    73,625×18   (7.5 MB，入库；16 特征 + 单价 + 小区)
+               → results/leak_screen_v2.csv, results/dropped_rows_v2.csv
+12_model_compare→ figures/fig10~fig11, results/model_scores_v2.csv, model_folds_v2.csv
+13_tune_v2     → figures/fig12, results/tuning_results_v2.csv
+14_eda_v2      → figures/fig13
+```
+
+**`src/common.py` 与 `src/common_v2.py` 的分工**：与数据集**无关**的规则（随机种子、
+防泄露三道关、交叉验证、RMSE、绘图配色）只在 `common.py` 定义一次，`common_v2.py`
+**导入**它们，绝不重新定义 —— 那套规则只能有一份，有两份早晚会有一份先过期。
+`common_v2.py` 只放第二版特有的：字段映射、清洗阈值、`GbdtFrame` 预处理器、
+`make_group_cv()`、`CatBoostCategorical`。
+
+⚠️ `12_model_compare.py` 里的堆叠集成要跑 **10 分钟**（内层 5 折 × 4 个基模型 × 外层 5 折，
+CatBoost 一个就 14 秒）。只改图的话用 `--figs-only`，它从 `results/model_scores_v2.csv`
+读数据重画，不重跑模型。
+
+**`src/common.py` 是唯一真源**，被 01~06 全部导入（第二版经 `common_v2.py` 间接复用）。它同时定义：
 
 **`src/common.py` 是唯一真源**，被 02~06 全部导入。它同时定义：
 
@@ -170,6 +216,32 @@ web/model.json     ─┘
   坏掉的模型看起来只是「效果差」。`cv_scores()` 里用 `error_score="raise"` + 断言。
 - `OneHotEncoder` 必须 `handle_unknown="ignore"`：13 个区县在每一折里都可能有个别取值
   没出现在训练集，默认的 `"error"` 会直接崩。
+- **自定义估计器的继承顺序必须是 `(RegressorMixin, BaseEstimator)`，mixin 在前。**
+  写反了 `BaseEstimator.__sklearn_tags__` 排在 MRO 前面且不调用 `super()`，
+  `RegressorMixin` 那版永远轮不到，`estimator_type` 一直是 `None`，
+  `is_regressor()` 返回 False，堆叠集成报 **"The estimator Pipeline should be a regressor."**
+  —— 报错信息完全指不到继承顺序上。见 `common_v2.CatBoostCategorical`。
+
+**第二版 GBDT（`common_v2.py`，三个坑都不报错或报错指不到根因）**
+
+- **`ColumnTransformer` 会把数值列也变成 `object`。** 它把各列 hstack 成一个数组，
+  float64 与 object 混在一起会被统一提升成 object。改用 `GbdtFrame` 逐列构造 DataFrame。
+- **`X.iloc[:, i] = X.iloc[:, i].astype("category")` 是无效赋值。** iloc 是就地写入已有的
+  object 块，pandas 会把 Categorical 还原成原值，dtype 一点没变，**不报任何错**。
+  必须用标签赋值 `X[c] = ...`。
+- **类别表必须在 `fit` 时定死，不能在 `transform` 里现推。** 训练折和验证折各推一套，
+  顺序未必相同；XGBoost 按 `cat.codes`（类别在类别表里的**下标**）读数据，下标一错位
+  整列含义就变了 —— 不报错，只是把「南北」当成「东」。症状是 **GroupKFold 的 R² 掉成
+  -0.1461（负数）而 KFold 一切正常**，根因却在编码。LightGBM / CatBoost 按类别**取值**
+  处理，没这个问题。
+- **`CatBoostRegressor.get_params()` 返回 `cat_features` 的副本**，而 `sklearn.clone` 有
+  「构造器必须原样保存参数」的硬断言，`cross_val_score` / `StackingRegressor` 必崩：
+  `Cannot clone object ... as the constructor either does not set or modifies parameter`。
+  修法见 `CatBoostCategorical`（把声明挪进 `fit`）。另外 CatBoost **不会**从 pandas
+  category dtype 自动识别类别列，不声明直接报错。
+- **`GroupKFold` 不打乱。** 原始 CSV 按板块/环线排序，直接跑会让每一折落在连续的地理
+  区块上，「没见过的小区」和「没见过的区域」混在一起。必须先 `shuffle_once()` 打乱行序
+  （只改变哪些小区进哪一折，不破坏分组完整性），才能和 `shuffle=True` 的 `KFold` 对比。
 
 **pandas 3**
 
