@@ -414,6 +414,13 @@ def make_models() -> dict:
     }
 
 
+# 「GBDT 家族」到底指哪几个 —— 单列一份，而不是让各处按「名字里有没有 GBDT」去猜。
+# 堆叠集成**不算**：它是四个基模型之上的元学习器，报告里要单独说它的成败，
+# 混进家族里算平均会把「堆叠没赢」这个结论抹掉。
+# 12_model_compare.py 用它挑堆叠的基学习器，06_export.py 用它算「GBDT 比线性高多少」。
+GBDT_FAMILY = ("直方图梯度提升 HistGBR", "LightGBM", "XGBoost", "CatBoost")
+
+
 def make_stack(estimators: dict):
     """堆叠集成：三个 GBDT 的输出喂给一个 Ridge 元学习器。
 

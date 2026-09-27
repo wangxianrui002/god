@@ -229,6 +229,15 @@ def main() -> int:
     ridge_cv = float(plain_ridge["5折CV_R2"])
     poly_cv = float(res.loc[res["模型"] == "岭回归+多项式 Ridge+Poly2", "5折CV_R2"].iloc[0])
     poly_sd = float(res.loc[res["模型"] == "岭回归+多项式 Ridge+Poly2", "CV标准差"].iloc[0])
+
+    # 泄露演示落盘。这一对数字从前只出现在上面的打印里，于是网页和 README 引用它
+    # 时只能手抄 —— 而手抄的那份不会跟着数据走。更糟的是它和「小区均价」的单特征
+    # R² 恰好都约等于 0.868，抄错来源也看不出来。凡正文引用的实测值都要有落盘来源。
+    pd.DataFrame([
+        {"方案": "Ridge（正常特征）", "含泄露列": "—", "5折CV_R2": ridge_cv},
+        {"方案": "Ridge +「总价_万」", "含泄露列": "总价_万", "5折CV_R2": float(leak["r2"])},
+    ]).to_csv(RES / "leak_demo.csv", index=False, encoding="utf-8-sig")
+
     print(f"\n冠军：{best_name}   CV R² = {best_cv:+.3f}")
 
     base = float(res.loc[res["模型"].str.contains("Dummy"), "5折CV_R2"].iloc[0])

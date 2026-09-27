@@ -41,7 +41,10 @@ TARGET = "单价"
 # --------------------------------------------------------------------------
 # 市场窗口
 # --------------------------------------------------------------------------
-# 原始数据跨 2002–2018，这期间北京单价中位数从 3.8 万涨到 6.6 万（1.75 倍）。
+# 原始数据跨 2002–2018，这期间北京单价**年度**中位数从 15,380（2010）
+# 涨到 62,331（2017），跨 4.05 倍（实测落盘在 results/price_span.csv）。
+# 注意别把它和窗口内的读数混起来：2017 单年是 1.17 倍、2016–2017 是 1.75 倍 ——
+# 三个数全都对，但说的不是同一件事，正文引用时口径要写明。
 # 全量混在一起建模，模型学到的很大一部分会是「这套房是哪年卖的」，
 # 而不是「这套房值多少」—— 那不是一个估价模型。
 #
@@ -353,7 +356,11 @@ def screen_single_features(X: pd.DataFrame, y: pd.Series, thresh: float = LEAK_R
                          ("sc", StandardScaler()),
                          ("model", Ridge(alpha=1.0))])
         r2 = cross_val_score(pipe, X[[c]], y, cv=cv, scoring="r2", error_score="raise").mean()
-        rows.append({"特征": c, "单特征CV_R2": round(float(r2), 4),
+        # 相关系数一列是**只为报告**留的：判泄露与否全看 R²，这一列不参与判定。
+        # 落盘是因为「相关系数拦不住它」这个论点要用这两个数，而展示网页的规矩是
+        # 只读 results/、不手抄数字 —— 那就得把它们写进来。
+        rows.append({"特征": c, "相关系数": round(float(X[c].corr(y)), 4),
+                     "单特征CV_R2": round(float(r2), 4),
                      "判定": "泄露" if r2 > thresh else "正常"})
     return pd.DataFrame(rows).sort_values("单特征CV_R2", ascending=False).reset_index(drop=True)
 

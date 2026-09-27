@@ -8,6 +8,8 @@
 产出：
     data/lianjia_bj_clean.csv   建模表（不含任何价格类字段）
     results/leak_screen.csv     单特征泄露筛查结果
+    results/leak_ratio.csv      「总价_万 × 10000 ÷ 面积」与目标的相关系数
+    results/price_span.csv      全量与建模窗口各自的价格水位跨度（切窗口的量级依据）
     results/dropped_rows.csv    被清洗规则剔除的记录（抽样 200 条，便于复核）
 """
 from __future__ import annotations
@@ -36,6 +38,33 @@ def eta2(df: pd.DataFrame, group: str = "区县") -> float:
     return float(ssb / ((df[TARGET] - grand) ** 2).sum())
 
 
+def price_span(raw: pd.DataFrame) -> dict:
+    """全量与建模窗口各自的价格水位跨度 —— 「为什么要切窗口」的量级依据。
+
+    这个数必须落盘实测。它曾经写成「1.75 倍」，而 1.75 其实是
+    **2016–2017 两年窗口**的月度中位数跨度（37,915 → 66,456），
+    被误当成了全量 —— 全量的年度中位数是 15,380 → 62,331，跨 4.05 倍。
+    口径不写清楚，切窗口的理由就被低估了一半以上。
+    """
+    t = pd.to_datetime(raw["tradeTime"], errors="coerce")
+    year = t.dt.year
+    by_year = raw.groupby(year)["price"].agg(["count", "median"])
+    by_year = by_year[by_year["count"] >= 30]["median"]
+    win = raw[year.isin(list(WINDOW_YEARS))]
+    by_month = win.groupby(t.dt.to_period("M").astype(str))["price"].agg(["count", "median"])
+    by_month = by_month[by_month["count"] >= 50]["median"]
+    return {
+        "全量年份下限": int(year.min()),
+        "全量年份上限": int(year.max()),
+        "全量年度中位数最低": float(by_year.min()),
+        "最低年份": int(by_year.idxmin()),
+        "全量年度中位数最高": float(by_year.max()),
+        "最高年份": int(by_year.idxmax()),
+        "全量跨度倍数": float(by_year.max() / by_year.min()),
+        "窗口跨度倍数": float(by_month.max() / by_month.min()),
+    }
+
+
 def main() -> int:
     raw = load_raw()
     print(f"读取原始数据：{raw.shape[0]:,} 行 × {raw.shape[1]} 列")
@@ -54,8 +83,15 @@ def main() -> int:
     print(f"\n  清洗规则：单价不在 [{PRICE_MIN:,}, {PRICE_MAX:,}] 元/㎡、"
           f"面积不在 [{AREA_MIN:g}, {AREA_MAX:g}] ㎡、总价缺失或非正")
 
-    print("\n  为什么要切窗口：全量跨 2002–2018，北京单价中位数在这期间从 3.8 万涨到 6.6 万，")
-    print("  全量建模等于让模型用同一套系数解释相差 1.75 倍的两个市场。")
+    span = price_span(raw)
+    pd.DataFrame([span]).to_csv(RES / "price_span.csv", index=False, encoding="utf-8-sig")
+    print(f"\n  为什么要切窗口：全量跨 {span['全量年份下限']}–{span['全量年份上限']}，"
+          f"北京单价年度中位数在这期间从 {span['全量年度中位数最低'] / 1e4:.1f} 万"
+          f"（{span['最低年份']}）涨到 {span['全量年度中位数最高'] / 1e4:.1f} 万"
+          f"（{span['最高年份']}），")
+    print(f"  全量建模等于让模型用同一套系数解释相差 {span['全量跨度倍数']:.2f} 倍的两个市场。")
+    print(f"  （注意口径：{WINDOW_YEARS[0]}–{WINDOW_YEARS[1]} 这个窗口自身也有 "
+          f"{span['窗口跨度倍数']:.2f} 倍 —— 两个数别混用。）")
 
     if stats["稀有类别"] or stats["样本不足"]:
         print(f"\n  稀有类别处理（少于 {MIN_CATEGORY_COUNT} 行的取值）：")
@@ -115,6 +151,13 @@ def main() -> int:
 
     # 总价那条为什么必须靠语义判断：它是目标的恒等重建，只是线性模型造不出比值
     ratio = feats["总价_万"] * 10000 / feats["面积"]
+    # 落盘：展示网页要用这两个数讲「两道数值判据都拦不住总价」。数字必须
+    # 从数据算出来再落盘，而不是让网页抄一份常量 —— 抄的那份不会跟着数据走。
+    pd.DataFrame([{
+        "派生量": "总价_万 × 10000 ÷ 面积",
+        "与单价相关系数": float(ratio.corr(feats[TARGET])),
+        "最大差_元每平米": float((ratio - feats[TARGET]).abs().max()),
+    }]).to_csv(RES / "leak_ratio.csv", index=False, encoding="utf-8-sig")
     print(f"""
   「小区均价」—— 数值判据抓得住。它的名字里没有价格字样，列名黑名单拦不住；
   相关系数 {audit['小区均价'].corr(feats[TARGET]):+.3f} 用 0.95 的阈值也拦不住。

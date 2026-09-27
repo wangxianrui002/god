@@ -8,7 +8,7 @@
     3. 哪个特征真的有用？                            → fig03 / fig04
     4. 哪个字段会骗人？                              → fig05 / fig06
 
-产出：figures/fig01 ~ fig06
+产出：figures/fig01 ~ fig06、results/simpson_age.csv（fig06 那张图的几个 r，网页要引用）
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from common import (BASELINE, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK, INK_2,
-                    LEAK_R2_THRESHOLD, SURFACE, TARGET, build_features,
+                    LEAK_R2_THRESHOLD, RES, SURFACE, TARGET, build_features,
                     div_cmap, load_clean, load_raw, screen_single_features,
                     seq_cmap, setup_chinese_font)
 
@@ -276,6 +276,24 @@ def fig06_simpson(df: pd.DataFrame) -> None:
     fig.savefig(FIG / "fig06_simpson_age.png")
     plt.close(fig)
 
+    # 落盘而不是只打印：展示网页（06_export.py）要引用这几个数，
+    # 让它读文件而不是在模板里抄一份常量 —— 抄一份早晚会和这里跑出来的对不上。
+    # 每一行都是「一个口径下的一个数」，网页按 row 取。
+    n_pos = int((per > 0).sum())
+    rows = [
+        {"口径": "全市合并", "值": round(r_all, 4), "说明": "房龄与单价的相关系数"},
+        {"口径": "扣掉区县均值", "值": round(r_within, 4), "说明": "组内中心化之后的相关系数"},
+        {"口径": "各区县最大", "值": round(float(per.max()), 4), "说明": f"最正的是{per.idxmax()}"},
+        {"口径": "各区县最小", "值": round(float(per.min()), 4), "说明": f"最负的是{per.idxmin()}"},
+        # 「13 条里只有几条为正」比极值更能说明方向不统一，所以单独出一行。
+        # 这一行的 值 是「为正的比例」（不是相关系数），页面按 0~1 用；
+        # 「3 / 13」这种写法在 说明 里拼好 —— 拼的是**实测出来的数**，不是模板里抄的。
+        {"口径": "各区县为正的比例", "值": round(n_pos / len(per), 4),
+         "说明": f"{n_pos} / {len(per)} 个区县 r > 0"},
+    ]
+    # 列名用「值」不用「r」：这一列里混了一个比例，叫 r 会让读的人以为它也是相关系数。
+    pd.DataFrame(rows).to_csv(RES / "simpson_age.csv", index=False, encoding="utf-8-sig")
+
 
 def main() -> int:
     setup_chinese_font()
@@ -311,6 +329,7 @@ def main() -> int:
     fig05_leak_screen(screen)
     fig06_simpson(df)
     print(f"\n已生成 6 张图到 {FIG}")
+    print(f"  fig06 的三个 r 落盘 → {RES / 'simpson_age.csv'}")
     return 0
 
 

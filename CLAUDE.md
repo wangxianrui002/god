@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 模型选用合理 | 第一版只挑教程讲过的算法；第二版**按文献调研**选 GBDT 家族 + 堆叠（`MODEL_SELECTION.md`），且四个 GBDT 全部实测、用自己数据说话而非照搬文献结论；部署模型刻意选 Ridge 而非 CV 更高的 Poly2，理由是外推风险 | `MODEL_SELECTION.md`；README §八、§九 |
 | 计算过程科学 | 5 折交叉验证 + **GroupKFold 分组交叉验证**（量化乐观偏差 0.0402）+ 网格/随机搜索 + 三道防泄露关卡 + 幂等脚本 + node 双重校验；**搜索口径 = 汇报口径**（第二版都在 GroupKFold 上） | `make_group_cv()`；README §五、§七、§八、§九 |
 | 结果分析量化 | R² / RMSE / 标准差 / η²=0.627 / 相关系数 / 辛普森悖论 / 泄露对照（+0.678 → +0.868）/ **「换数据 +0.0917」与「换模型 +0.0840」分开算** | README §三、§五、§七、§九；`results/*.csv` |
-| 展示效果良好 | 13 张图 + **自包含预测网页**（双击即开、离线可用、16 个输入项、3 张实时图） | `figures/fig01~13`；`web/index.html` |
+| 展示效果良好 | 13 张图 + **自包含汇报网页**（双击即开、离线可用；九节正文 + 10 张内联 SVG + 内嵌的 13 张实测图 + 结论卡片，末尾接一个 16 输入项的估价器） | `figures/fig01~13`；`web/index.html` |
 | 实验讲解清晰 | README 十一节正文 + `MODEL_SELECTION.md`（选型依据）；关键取舍都写在源码注释里 | `README.md`、`MODEL_SELECTION.md` |
 
 **最有价值的结论（答辩时的主线）**：目标是单价而非总价，所以面积几乎不含信息
@@ -59,17 +59,25 @@ uv run python src/12_model_compare.py --figs-only   # 只重画图，读已落�
 uv run python src/13_tune_v2.py        # GroupKFold 口径随机搜索   ★ 8 分钟（LightGBM 376 s）
 uv run python src/13_tune_v2.py --figs-only         # 只重画图，读已落盘的搜索结果
 uv run python src/14_eda_v2.py         # 新字段一元解释力 η²                 秒级
+uv run python src/15_cat_iter_scan.py  # CatBoost 迭代数单向扫描   ★ 约 10 分钟（附录，非必跑）
 ```
+
+`12_model_compare.py --figs-only` 除了重画 fig10/fig11，还会重算**排除性验证**
+（`results/unseen_plate.csv`）—— 那一步只做分折数学、不拟合模型，秒级完成，
+所以专门放在 `figs_only` 分支之外，不必为它等 10 分钟建模。
 
 - **`05_tune.py` 和 `12_model_compare.py` 是慢的**。前者在 43,213 行上跑 KNN 网格搜索，每次
   预测都要算一遍全表距离，已开 `n_jobs=-1`，仍需几分钟；后者里的堆叠集成要跑内层 5 折 ×
   4 个基模型 × 外层 5 折，约 10 分钟（CatBoost 一个就 20 秒上下）。**别用默认 2 分钟超时去跑它们**。
   距离次数由 `knn_distances()` 按实际行数算出（≈1.8×10¹⁰），**不写死**。
 - 所有脚本都**幂等**，随便重复跑。
-- `06_export.py` 需要 **node**；没装时两道校验都打印 `[跳过]` 并继续，但会明确提示
-  「网页逻辑未经验证」。
-- 没有测试框架、没有 lint 配置。唯一的自动化校验是 `06_export.py` 里的两道 node 检查
-  （页面脚本语法 + 逐行比对 43,213 行预测值），失败即 `assert`，拒绝发布。
+- `06_export.py` 的其中两道校验需要 **node**；没装时它们打印 `[跳过]` 并继续，但模板引用那道
+  照跑，页脚也如实写「本次导出没跑 node 校验」（**这条路径靠 monkeypatch 掉 `verify_with_node`
+  模拟跑过**，因为本机永远有 node —— 页脚现在由 `report.verify.text` 这个**字符串**驱动，
+  取不到值会让整页数字都不填）。
+- 没有测试框架、没有 lint 配置。唯一的自动化校验是 `06_export.py` 里的**三道**检查，失败即
+  `assert`，拒绝发布：① 模板里的数字路径与 `$("id")` 元素引用是否都存在；② node 编译页面
+  脚本（只查语法）；③ node 用 `predict.js` 逐行比对 43,213 行预测值。
 - `figures/` 和 `results/` **进版本库**，所以重跑脚本会让工作区变脏 —— 这是预期的，
   提交时把图一起带上。
 
@@ -77,7 +85,7 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 
 ## 三、架构
 
-### 3.1 两套流水线：第一版（`01`~`06`）与第二版（`10`~`14`）
+### 3.1 两套流水线：第一版（`01`~`06`）与第二版（`10`~`15`）
 
 每个脚本只做一件事，产出物落盘，下一个脚本读盘。因此任何一段都可以单独重跑。
 **用 `1x` 编号是为了让两套流水线并存但不混淆**：第一版的产出物一个都没动，
@@ -88,18 +96,23 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 01_download  → data/lianjia_bj_raw.csv     318,851×26   (59 MB，不入库)
 02_clean     → data/lianjia_bj_clean.csv    43,213×17   (3.8 MB，入库；不含任何价格字段)
              → results/leak_screen.csv, results/dropped_rows.csv
-03_eda       → figures/fig01~fig06
+03_eda       → figures/fig01~fig06, results/simpson_age.csv  (fig06 的三个 r，网页要引用)
 04_regression→ figures/fig07~fig08, results/model_scores.csv
+             → results/leak_demo.csv   (真把「总价_万」放进特征再跑一遍 Ridge：0.678 → 0.868)
 05_tune      → figures/fig09, results/tuning_results.csv
-06_export    → web/model.json, web/index.html, results/app_test_cases.csv
+             → results/val_curve_v1.csv   (验证曲线上 10 个读数，网页第七节整节的论据)
+06_export    → web/model.json, web/index.html (4.1 MB), results/app_test_cases.csv
+             ← 读 results/ 下 12 张表，把数注入模板；自己不产生实验结论数字
 
 第二版 —— Kaggle 挂牌数据 + GBDT 家族，README §九
 10_download_v2 → data/house_v2_raw.csv      73,685×22   (26 MB，不入库)
 11_prepare_v2  → data/house_v2_clean.csv    73,625×18   (7.5 MB，入库；16 特征 + 单价 + 小区)
                → results/leak_screen_v2.csv, results/dropped_rows_v2.csv
 12_model_compare→ figures/fig10~fig11, results/model_scores_v2.csv, model_folds_v2.csv
+               → results/unseen_plate.csv   (排除性验证：落差不是「整片板块没见过」)
 13_tune_v2     → figures/fig12, results/tuning_results_v2.csv
-14_eda_v2      → figures/fig13
+14_eda_v2      → figures/fig13, results/eta2_v2.csv
+15_cat_iter_scan → results/cat_iter_scan.csv  (附录：CatBoost 只扫迭代数)
 ```
 
 **`src/common.py` 与 `src/common_v2.py` 的分工**：与数据集**无关**的规则（随机种子、
@@ -119,7 +132,10 @@ uv run python src/14_eda_v2.py         # 新字段一元解释力 η²          
 
 ### 3.2 网页是生成物，不是源码
 
-`web/index.html`（78 KB）由 `06_export.py` 渲染生成：
+`web/index.html`（4.1 MB）由 `06_export.py` 渲染生成。它**一份文件兼两个用途**：九节课堂
+汇报（§01 题目与做法 / §02 防泄露 / §03 第一版 5 模型 / §04 第二版 9 模型 × 2 套 CV /
+§05 换数据 vs 换模型 / §06 η² / §07 调参 / §08 局限 / §09 现场演示），末尾接一个可现场操作的
+估价器。
 
 ```
 web/template.html  ─┐
@@ -129,6 +145,20 @@ web/model.json     ─┘
 
 - **改了 `template.html` 或 `predict.js` 必须重跑 `06_export.py`**，否则改动不会出现在页面上。
 - `index.html` 仍进版本库，是为了 clone 下来双击就能用。
+- **汇报页上的数字一个都不许手抄。** 正文里写 `<span data-n="report.a.b:格式">`，
+  `06_export._report()` 从 `results/*.csv` 读出来注入，`fillNumbers()` 初始化时解析，
+  **取不到值就抛错**（不静默留破折号）。格式串在 `FMT` 里，R² 的**差值**要用 `pp1`/`pp0`
+  （「9.2 个百分点」），不能用 `pct1`（会读成「相对涨了 9.2%」）。
+  为这条规矩，`03_eda.py` 把本来只打印的辛普森三个 r 落盘成 `results/simpson_age.csv`。
+- 汇报部分的图有**两种**，各有各的用处，别混为一谈：
+  ① **10 张内联 SVG**，由注入的 JSON 现画 —— 用于模型对比这类需要跟着页面配色走的图，
+  也会随主题换色；**估价器那三张会响应输入**。
+  ② **13 张实测分析图**（`figures/fig01~13`，`06_export.figures()` 读成 `data:` URI 内嵌），
+  是报告里的原图，浅底白卡片呈现，不随主题换色（PNG 是死的）。**文件 4.1 MB 基本都是它们**。
+  之所以内嵌而不是写 `<img src="figures/...">`：网页的交付形态是**单个文件、双击即开**，
+  写相对路径的话把 `index.html` 单独拷走图就全裂了。模板里用 `__FIG_<stem>__` 占位，
+  `render()` 会双向断言（模板引用了的图必须存在、读到的图必须被模板引用），
+  免得图裂成一行占位符字符串而校验还打 ✓。
 - `predict.js` 是**一份实现、两处使用**：网页和 node 校验脚本共用它，所以「页面显示的数」和
   「Python 算的数」不会各写一份然后慢慢漂移。它把 Python 管线的每一步在 JS 里重放：
   `SimpleImputer(median)` → `StandardScaler` → `SimpleImputer(most_frequent)` →
@@ -136,9 +166,10 @@ web/model.json     ─┘
 - **导出参数一律按 `float64` 原样写，不做任何四舍五入。** 曾经为了「让 JSON 好看」留 6 位
   小数，一万多的 one-hot 系数乘上去误差到 `1e-2` 量级，被 node 校验抓出来。当前实测最大
   差值 5.8e-11 元/㎡。
-- 网页部署的是 `Ridge(alpha=0.178)`，**不是 CV 更高的 `Ridge+Poly2`**：差距约 0.6%，但二次
-  函数在训练区间外会掉头向下（「关注人数填 500」能算出负单价）。网页输入域开放，这一分精度
-  不值得换外推风险。同理 `FORM_RANGES` 给每个输入框卡了范围。
+- **估价器部署的是 `Ridge(alpha=0.178)`，不是 CV 更高的 `Ridge+Poly2`**：差距 1.8 个百分点，
+  但二次函数在训练区间外会掉头向下（「关注人数填 500」能算出负单价）。网页输入域开放，这一分
+  精度不值得换外推风险。同理 `FORM_RANGES` 给每个输入框卡了范围。**第二版的 GBDT 结果只以
+  图表形式汇报、不接进估价器** —— Ridge 39 个系数能逐行搬到 JS，GBDT 集成不能。
 
 ### 3.3 数据窗口
 
@@ -239,11 +270,22 @@ web/model.json     ─┘
 
 **发布链路**
 
-- `06_export.py` 有**两道**校验，缺一不可：第一道用 node 的 `vm.Script` 编译页面里的内联脚本
-  （只查语法），第二道用 `predict.js` 整表跑 43,213 行与 Python 逐行比对。曾经模板里多写一个
-  `}`，页面打开是空表，而第二道仍打印 ✓ —— 因为它验的是 `predict.js` 里的预测函数，和页面
-  脚本是两份代码。
+- `06_export.py` 有**三道**校验，缺一不可：① 模板里的 `<span data-n="...">` 路径与
+  `$("id")` 元素引用是否都存在（`verify_template_refs`）；② node 的 `vm.Script` 编译页面里的
+  内联脚本（只查语法）；③ `predict.js` 整表跑 43,213 行与 Python 逐行比对。**每一道都是被一次
+  真实事故补上的**：模板里多写一个 `}`，页面打开是空表而 ③ 仍打印 ✓（它验的是 `predict.js`
+  里的预测函数，和页面脚本是两份代码）→ 补了 ②；改模板时删掉了一个被 `<span>` 指向的元素、
+  `fillNumbers` 抛 TypeError 导致整页数字全不填，而 ②③ 都只验预测逻辑 → 补了 ①。
+- **`verify_template_refs` 的扫描范围最容易写反**：`$("id")` 全写在 `<script>` 里，被引用的
+  id 定义在标签里，所以要在**整份**模板里找 `$(`、在**去掉 `<script>` 后**找 `id=`。写反了
+  这项检查就是在空跑（曾经扫出「0 处元素引用」还打 ✓），所以它末尾有 `assert refs` 兜底。
+- **校验顺序不能随便调**：模板里有一处 `<span data-n="report.verify.text">` 引用的是
+  **校验结果本身**，所以 node 比对必须排在模板检查**前面**。顺序反了会报「模板引用了不存在的
+  东西」，而真正的问题是顺序。
 - 比较用的期望值**不能取整**：写 `round(..., 6)` 光期望值自己就带 5e-7 误差，会淹没真差异。
+- **模板引用的数一律走注入，禁止在正文里手抄。** `report.*` 的字段在 `_report()` 里定义，
+  要加一个就在那儿加；`results/` 里没有的数（比如辛普森的组内 r）先让产出脚本落盘成 CSV，
+  再读进来 —— 不要在 `06_export.py` 里现算一份，那会绕开「产出脚本是唯一真源」这条。
 
 ---
 

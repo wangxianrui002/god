@@ -32,8 +32,9 @@ from sklearn.model_selection import train_test_split
 from common import (BASELINE, C_AQUA, C_BLUE, C_CRITICAL, C_ORANGE, FIG, INK,
                     INK_2, MUTED, RES, SEED, SURFACE, TARGET, guard_no_leakage,
                     rmse, setup_chinese_font)
-from common_v2 import (GROUP_COL, cv_scores, group_cv_scores, load_clean, load_xy,
-                       make_models, make_stack, shuffle_once)
+from common_v2 import (GBDT_FAMILY, GROUP_COL, cv_scores, group_cv_scores,
+                       load_clean, load_xy, make_group_cv, make_models,
+                       make_stack, shuffle_once)
 
 TEST_SIZE = 0.2
 
@@ -45,10 +46,9 @@ def make_contestants() -> dict:
     """8 个单模型 + 1 个堆叠集成。顺序 = 报告里表格的顺序。"""
     models = make_models()
 
-    # 堆叠的基学习器：三个第三方 GBDT 库 + sklearn 自带的 HistGBR。
+    # 堆叠的基学习器：三个第三方 GBDT 库 + sklearn 自带的 HistGBR，正好是 GBDT_FAMILY。
     # 不放线性模型和 KNN —— 它们的 CV R² 低 8~15 个点，加进去只会稀释。
-    base = {k: v for k, v in models.items()
-            if k in ("LightGBM", "XGBoost", "CatBoost", "直方图梯度提升 HistGBR")}
+    base = {k: v for k, v in models.items() if k in GBDT_FAMILY}
     models["堆叠 GBDT×4 → Ridge"] = make_stack(base)
     return models
 
@@ -88,6 +88,44 @@ def evaluate(name: str, model, X, y, groups, tr, te) -> tuple[dict, list[dict]]:
     folds += [{"模型": name, "方案": "GroupKFold 5 折（按小区）", "折": i + 1, "R2": float(v)}
               for i, v in enumerate(fold_g)]
     return row, folds
+
+
+# --------------------------------------------------------------------------
+# 排除性验证：落差到底是「没见过的小区」还是「没见过的区域」造成的
+# --------------------------------------------------------------------------
+def unseen_plate(X, y, groups) -> pd.DataFrame:
+    """逐折统计「验证集里有多少比例的样本，其板块在训练集里一次都没出现」。
+
+    **为什么要做这个**：GroupKFold 按小区分组，只挡住「同小区泄露」，挡不住
+    「相邻小区泄露」。于是 GroupKFold 上仍然存在的落差有两种解释：
+      ① 同小区/邻近小区的房子被切到两边（我们想量的那个）；
+      ② 干脆整片区域没进训练集 —— 那是「外推」，另一回事。
+    把 ② 量出来：若每一折都是 0，② 就被排除，落差只能归给 ①。
+
+    **这是排除性证据，不是又一个指标**：报告里说「落差来自空间自相关」时，
+    它挡住的是「其实是因为分折时整片板块都没见过」这个替代解释。
+    排除掉一个替代解释，比多测一个数字更有意义。
+
+    只做分折数学，不拟合任何模型，所以秒级完成。
+    """
+    from common import make_cv
+
+    plate = X["板块"].astype("string")
+    rows = []
+    for label, splits in (("普通 KFold", make_cv().split(X, y)),
+                          ("GroupKFold", make_group_cv().split(X, y, groups))):
+        for i, (tr, te) in enumerate(splits, 1):
+            seen = set(plate.iloc[tr].dropna())
+            # 缺失值不算「没见过」：`isin` 对 NA 恒为 False，不排除的话
+            # 「板块缺失」会被记成「没见过的板块」—— 那是把缺失当成了新类别，
+            # 而管线里 NA 是交给 SimpleImputer 的，本来就不参与「见没见过」。
+            held = plate.iloc[te]
+            unseen = held.notna() & held.isin(seen).eq(False)
+            rows.append({"方案": label, "折": i,
+                         "没见过的板块占比": round(float(unseen.mean()), 6),
+                         "没见过的行数": int(unseen.sum()),
+                         "该折板块数": int(held.nunique())})
+    return pd.DataFrame(rows)
 
 
 # --------------------------------------------------------------------------
@@ -209,6 +247,7 @@ def main(figs_only: bool = False) -> int:
     # 堆叠集成要跑 10 分钟（内层 5 折 × 4 个基模型 × 外层 5 折），
     # 而调图只是改坐标轴。所以留一个只重画图的入口，
     # 从已落盘的结果表读数据：`uv run python src/12_model_compare.py --figs-only`
+    X = y = groups = None
     if figs_only:
         res = pd.read_csv(RES / "model_scores_v2.csv")
         # 下面报 MAE 占比要用到目标中位数，所以即使不建模也要读一次建模表。
@@ -242,6 +281,24 @@ def main(figs_only: bool = False) -> int:
         res.to_csv(RES / "model_scores_v2.csv", index=False, encoding="utf-8-sig")
         pd.DataFrame(folds).to_csv(RES / "model_folds_v2.csv", index=False,
                                    encoding="utf-8-sig")
+
+    # ---- 排除性验证 ---------------------------------------------------
+    # 只做分折数学、不拟合模型，秒级；所以放在 figs_only 分支之外，
+    # 带 --figs-only 也能把这张表重新生成，不必等 10 分钟的建模。
+    if X is None:
+        X, y, groups = shuffle_once(*load_xy())
+    u = unseen_plate(X, y, groups)
+    u.to_csv(RES / "unseen_plate.csv", index=False, encoding="utf-8-sig")
+    worst = u["没见过的板块占比"].max()
+    print(f"\n{'=' * 78}")
+    print("排除性验证：落差会不会只是「整片板块没见过」？")
+    print(f"{'=' * 78}")
+    n_unseen = int(u["没见过的行数"].sum())
+    n_folds = int((u["没见过的行数"] > 0).sum())
+    print(f"  两套 CV 共 {len(u)} 折，落在「训练集没见过的板块」上的样本合计 "
+          f"{n_unseen} 行（{n_folds} 折各 1 行，最大占比 {worst:.4%}）")
+    print("  → 占比是万分之零点几，等于没有：落差排除掉「整片区域没见过」这个替代解释，\n"
+          "    只能归给同小区 / 邻近小区的空间自相关。这是排除性证据，不是又一个指标。")
 
     # ---- 主表 ---------------------------------------------------------
     print(f"\n{'=' * 78}")

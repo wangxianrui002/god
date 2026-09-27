@@ -250,12 +250,35 @@ def main() -> int:
     k_trm, k_te_m = k_tr.mean(axis=1), k_te.mean(axis=1)
     a_best_i, k_best_i = int(np.argmax(a_te)), int(np.argmax(k_te_m))
 
-    # Ridge 这条曲线到底有没有过拟合，用实测缝隙回答，不靠教科书默认印象
+    # Ridge 这条曲线到底有没有过拟合，用实测缝隙回答，不靠教科书默认印象。
+    # a_gap_i 是缝隙最大那一处的下标：下面打印时**必须**报这一处的训练/验证得分。
+    # 曾经报的是 index 0（alpha 最小那一头）的得分，而 a_gap 取的是全曲线最大值 ——
+    # 两个数不是同一次读数，读者拿它们对不上。
+    a_gap_i = int(np.argmax(a_tr - a_te))
     a_gap = float(np.max(a_tr - a_te))
     # 欠拟合从哪开始：验证得分跌破峰值 2 个百分点的第一个 alpha
     under = np.where(a_te < a_te.max() - 0.02)[0]
     a_under = ALPHAS[under[0]] if len(under) else None
     k_gap = float(np.max(k_trm - k_te_m))
+
+    # 落盘而不是只打印：展示网页（06_export.py）第七节要引用「最大缝隙」「从哪个 alpha
+    # 开始塌」这几个读数，让它读文件而不是在模板里抄一份 —— 抄一份早晚会和这里跑出来的
+    # 对不上，而这条曲线的形状正是那一节的全部论据。
+    pd.DataFrame([
+        {"口径": "Ridge 最优 alpha", "值": float(best_alpha), "说明": "网格搜索选出的惩罚力度"},
+        {"口径": "Ridge 最大训练-验证缝隙", "值": round(a_gap, 4),
+         "说明": f"出现在 alpha={ALPHAS[int(np.argmax(a_tr - a_te))]:g}"},
+        {"口径": "Ridge 开始塌的 alpha", "值": float(a_under) if a_under else float("nan"),
+         "说明": "验证得分跌破峰值 2 个百分点的第一个 alpha"},
+        {"口径": "Ridge 最大 alpha 处验证得分", "值": round(float(a_te[-1]), 4),
+         "说明": f"alpha={ALPHAS[-1]:g}，惩罚压掉真实信号"},
+        {"口径": "Ridge alpha 下界", "值": float(ALPHAS[0]), "说明": "惩罚几乎为零的一头"},
+        {"口径": "KNN k=1 训练得分", "值": round(float(k_trm[0]), 4), "说明": "每个点的最近邻居是它自己"},
+        {"口径": "KNN k=1 验证得分", "值": round(float(k_te_m[0]), 4), "说明": "同一处的验证得分"},
+        {"口径": "KNN 最大训练-验证缝隙", "值": round(k_gap, 4), "说明": "教科书式的过拟合"},
+        {"口径": "KNN 最优 k", "值": int(best_k), "说明": "验证得分最高的邻居数"},
+        {"口径": "KNN 最优 k 处验证得分", "值": round(float(k_te_m[k_best_i]), 4), "说明": ""},
+    ]).to_csv(RES / "val_curve_v1.csv", index=False, encoding="utf-8-sig")
 
     print(f"""
 怎么读这些结果：
@@ -266,7 +289,9 @@ def main() -> int:
   · 左图是这次最值得看的一张。教程 §2.4 的教科书图景是「alpha 小 → 过拟合，
     大 → 欠拟合」，但在这份数据上**只有右半边成立**：
       - alpha 从 {ALPHAS[0]:g} 到约 {ALPHAS[a_best_i]:g}，训练得分和验证得分整条几乎重合，
-        最大缝隙只有 {a_gap:.4f}（训练 {a_tr[0]:.3f} vs 验证 {a_te[0]:.3f}）。
+        整条曲线 25 个点的缝隙全在 {np.min(a_tr - a_te):.4f}~{a_gap:.4f} 之间，
+        最大的一处出现在 alpha={ALPHAS[a_gap_i]:g}（训练 {a_tr[a_gap_i]:.3f} vs 验证 {a_te[a_gap_i]:.3f}）
+        —— 在最右端那一头，不在左边。
         惩罚几乎为零时**也不见过拟合**，因为 43,213 行喂 11 个数值特征，
         模型复杂度远小于样本量能支撑的规模。
       - 唯一的边界在右边：alpha 超过 {a_under:g} 附近才开始塌，到 {ALPHAS[-1]:g} 掉到 {a_te[-1]:.3f}，

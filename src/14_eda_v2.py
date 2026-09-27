@@ -23,6 +23,7 @@
 
 产出：
     figures/fig13_eta2_v2.png
+    results/eta2_v2.csv
 """
 from __future__ import annotations
 
@@ -185,9 +186,18 @@ def main() -> int:
               "但它只在 KFold 上赢、GroupKFold 上反而更低 —— "
               "拿它算收益等于用偏乐观的尺子量收益，见 figures/fig10_model_compare_v2.png。")
 
+    # 落盘成 CSV，而不是只打印：展示网页（06_export.py）要引用这几个数，
+    # 让它读文件而不是抄一份常量进来 —— 抄一份早晚会和这里跑出来的对不上。
+    pd.DataFrame([
+        {"字段": c, "取值数": int(df[c].nunique()),
+         "类别": "地理" if c in GEO_FIELDS else "非地理", "eta2": round(vals[c], 4)}
+        for c in FIELDS
+    ]).to_csv(RES / "eta2_v2.csv", index=False, encoding="utf-8-sig")
+
     setup_chinese_font()
     fig13(df, vals)
     print("\n  图 → figures/fig13_eta2_v2.png")
+    print("  表 → results/eta2_v2.csv")
     return 0
 
 
