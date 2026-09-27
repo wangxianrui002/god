@@ -881,12 +881,23 @@ input:focus-visible,select:focus-visible,.toggle input:focus-visible+span{
          <b>分数又低、又不抖，这是欠拟合的典型样子</b> ——
          对比 XGBoost：分数同样低，但 GroupKFold 的折间标准差是
          <span data-n="report.v2.cat.xgb_gk_std:f4">—</span>，抖得厉害，那是另一回事。</p>
-      <p>于是做了个验证：<b>只扫迭代数，其余超参一律不动</b>，400 → 800 → 1600 轮
-         （<code>results/tuning_results_v2.csv</code> 之外的一次单向扫描）分数<b>单调上升、到 1600 轮仍未收敛</b>。
+      <p>于是做了个验证：<b>只扫迭代数，其余超参一律不动</b>
+         （<code>results/cat_iter_scan.csv</code>，协议与主表同源）——
+         <span data-n="report.v2.cat.scan.0.n:int">—</span> →
+         <span data-n="report.v2.cat.scan.1.n:int">—</span> →
+         <span data-n="report.v2.cat.scan.2.n:int">—</span> 轮，分数
+         <b><span data-n="report.v2.cat.scan.0.r2:r4">—</span> →
+         <span data-n="report.v2.cat.scan.1.r2:r4">—</span> →
+         <span data-n="report.v2.cat.scan.2.r2:r4">—</span></b>，
+         <b>单调上升、到 <span data-n="report.v2.cat.scan.2.n:int">—</span> 轮仍未收敛</b>。
          所以「CatBoost 比另外三个差」这个读法<b>没有依据</b> ——
          差距里很大一块是<b>同一套超参对不同库的适配度</b>，
-         不是库本身的能力。但<b>别把话说满</b>：到 1600 轮它仍然低一截，
-         本次实验<b>只证明了「排名会随迭代数移动」，没证明「调够了就能反超」</b>。</p>
+         不是库本身的能力。但<b>别把话说满</b>：到
+         <span data-n="report.v2.cat.scan.2.n:int">—</span> 轮它仍然低一截，
+         本次实验<b>只证明了「排名会随迭代数移动」，没证明「调够了就能反超」</b>。
+         <i>另外，扫描的 <span data-n="report.v2.cat.scan.0.n:int">—</span> 轮那一行
+         等于主表里 CatBoost 的 GroupKFold 分数（<span data-n="report.v2.cat.scan.0.r2:r4">—</span>）——
+         对不上就说明两次用的不是同一套折划分，导出时会直接断言失败。</i></p>
     </div>
 
     <div class="takeaway">

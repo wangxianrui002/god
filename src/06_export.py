@@ -414,6 +414,14 @@ def _report(n_rows: int, districts: list[str]) -> dict:
     # +1 是因为「最小」= 第 1 名，而 rank() 从 1 起算、本身已经是对的，这里只是写清楚。
     cat_gap_rank_fam = int(fam["GroupKFold_落差"].rank().loc[cat_row.name])
     cat_kf_std_rank = int(s2["KFold_CV_std"].rank().loc[cat_row.name])
+    # 迭代数扫描的 400 轮那一行，协议与主表同源，所以必须等于主表 CatBoost 的
+    # GroupKFold 分数。不相等就说明扫描用的折划分/预处理跟主表不一样 ——
+    # 那样扫描就不能用来解释主表里的排名，这句断言把这件事挡在导出之前。
+    scan_df = _results("cat_iter_scan.csv")
+    assert abs(float(scan_df["GroupKFold_CV_R2"].iloc[0])
+               - float(cat_row["GroupKFold_CV_R2"])) < 1e-4, (
+        "扫描的 400 轮读数与主表 CatBoost 的 GroupKFold 分数对不上，"
+        "两者用的不是同一套折划分，扫描结论不能用来解释主表排名")
 
     xgb_name = "XGBoost"
     peers = [n for n in GBDT_FAMILY if n != xgb_name]
@@ -507,6 +515,13 @@ def _report(n_rows: int, districts: list[str]) -> dict:
                 "kf_rank_fam": int(fam["KFold_CV_R2"].rank(ascending=False).loc[cat_row.name]),
                 # 反面对照：XGBoost 分数一样低，但抖动完全是另一回事
                 "xgb_gk_std": float(s2.loc[s2["模型"] == xgb_name, "GroupKFold_CV_std"].iloc[0]),
+                # 只扫迭代数的单向扫描（15_cat_iter_scan.py）。这三个数原先是从
+                # 控制台手抄进正文的 —— 手抄的值早晚会和跑出来的对不上，所以补了
+                # 脚本落盘。协议与主表严格一致，所以 400 轮那一行必然等于上面 cat 的
+                # GroupKFold_CV_R2，这正是「扫描没跑偏」的自证。
+                "scan": [{"n": int(r["迭代数"]), "r2": float(r["GroupKFold_CV_R2"]),
+                          "secs": float(r["拟合秒"])}
+                         for _, r in scan_df.iterrows()],
             },
         },
         "leak": {"v1": leak("leak_screen.csv"), "v2": leak("leak_screen_v2.csv"),
