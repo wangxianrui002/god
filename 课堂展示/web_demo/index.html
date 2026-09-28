@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>北京二手房单价预测 · 课堂演示</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <div class="brand"><span class="brand-mark"></span><span>BEIJING HOUSING LAB</span></div>
+      <span class="year-tag">2017 年成交数据 · 课堂演示</span>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow">机器学习 · 回归预测</p>
+        <h1 id="page-title">让一套房子的特征<br><em>变成可检验的预测</em></h1>
+        <p class="hero-desc">从固定测试集选择真实成交房源，调整房屋条件，观察决策树对每平方米成交单价的预测。</p>
+      </div>
+      <div class="hero-stats" aria-label="模型概览">
+        <div><strong id="stat-rows">—</strong><span>2017 年有效样本</span></div>
+        <div><strong id="stat-r2">—</strong><span>测试集 R²</span></div>
+        <div><strong id="stat-mae">—</strong><span>测试集 MAE · 元/㎡</span></div>
+      </div>
+    </section>
+
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow blue">LIVE MODEL</p>
+          <h2>现场预测台</h2>
+          <p>选择一条未参与训练的测试样本，修改六项房屋特征。页面会把输入发给本机 Python 程序，由已训练的决策树返回预测值。</p>
+        </div>
+        <div class="flow" aria-label="模型计算流程">
+          <span>房屋属性</span><b>→</b><span>缺失处理与编码</span><b>→</b><span>决策树</span><b>→</b><span>单价</span>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <section class="panel controls" aria-labelledby="input-title">
+          <div class="panel-head">
+            <div><p class="panel-kicker">01 / INPUT</p><h2 id="input-title">选择并调整房源</h2></div>
+            <span class="step-chip">16 项特征中的 6 项可调</span>
+          </div>
+          <div id="case-tabs" class="case-tabs" role="group" aria-label="测试房源"></div>
+          <form id="prediction-form">
+            <div class="form-grid">
+              <label><span>区县</span><select name="区县" required></select></label>
+              <label><span>建筑面积 <small>㎡</small></span><input name="面积" type="number" min="10" max="300" step="0.01" required></label>
+              <label><span>户型 <small>室</small></span><input name="室" type="number" min="0" max="8" step="1" required></label>
+              <label><span>房龄 <small>年</small></span><input name="房龄" type="number" min="0" max="70" step="0.1" required></label>
+              <label><span>近地铁</span><select name="近地铁"><option value="1">是</option><option value="0">否</option></select></label>
+              <label><span>装修</span><select name="装修" required></select></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="predict-button">计算预测单价 <span aria-hidden="true">↗</span></button>
+              <button type="button" id="reset-button" class="ghost">恢复样本</button>
+            </div>
+          </form>
+          <details class="feature-details">
+            <summary>查看该房源原始的全部 16 项模型特征</summary>
+            <dl id="all-features"></dl>
+          </details>
+        </section>
+
+        <section class="panel result" aria-labelledby="result-title">
+          <div class="panel-head">
+            <div><p class="panel-kicker">02 / OUTPUT</p><h2 id="result-title">模型输出</h2></div>
+            <span id="result-status" class="status-chip">等待计算</span>
+          </div>
+          <p class="result-caption">2017 年成交单价预测</p>
+          <div class="headline-number"><strong id="predicted-price">—</strong><span>元 / ㎡</span></div>
+          <p id="result-explanation" class="result-explanation" aria-live="polite">正在加载模型结果…</p>
+          <div class="chart" aria-label="真实成交单价与预测单价对比">
+            <div class="chart-row"><div class="chart-label"><span id="reference-label">真实成交</span><strong id="reference-value">—</strong></div><div class="track"><div id="reference-bar" class="bar reference"></div></div></div>
+            <div class="chart-row"><div class="chart-label"><span>模型预测</span><strong id="prediction-value">—</strong></div><div class="track"><div id="prediction-bar" class="bar predicted"></div></div></div>
+            <div class="axis"><span>0</span><span>越长代表单价越高</span></div>
+          </div>
+          <div class="result-foot"><span class="dot"></span><span id="result-footnote">预测值来自与实验相同的模型管线</span></div>
+        </section>
+      </div>
+
+      <section class="examples panel" aria-labelledby="examples-title">
+        <div class="panel-head">
+          <div><p class="panel-kicker">03 / CHECK</p><h2 id="examples-title">三条测试样本，一眼看误差</h2></div>
+          <span class="subtle">单位：元 / ㎡</span>
+        </div>
+        <div id="examples-grid" class="examples-grid"></div>
+      </section>
+
+      <section class="comparison panel" aria-labelledby="comparison-title">
+        <div class="panel-head">
+          <div><p class="panel-kicker">04 / BENCHMARK</p><h2 id="comparison-title">同一测试集上的模型对比</h2></div>
+          <span class="subtle">R² 越高越好 · MAE 越低越好</span>
+        </div>
+        <div id="model-scores" class="model-scores"></div>
+      </section>
+
+      <p class="disclaimer">演示边界：模型只学习了 2017 年成交数据。修改条件后没有对应的真实成交价；输出变化不能解释为单个属性的因果作用，也不能作为当前市场报价。</p>
+    </main>
+    <footer>北京二手房单价预测 · 综合实验 <span>本地运行 · 无需联网</span></footer>
+  </div>
+</body>
+</html>

@@ -1,16 +1,12 @@
 [project]
-name = "god"
+name = "beijing-house-price-coursework"
 version = "0.1.0"
-description = "北京二手房单价预测 —— 《Python机器学习教程》第 7 章综合练习"
+description = "2017 年北京二手房单价预测综合实验"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "catboost>=1.2.10",
-    "lightgbm>=4.7.0",
-    "matplotlib>=3.11.2",
-    "numpy>=2.4.6",
-    "pandas>=3.0.6",
-    "scikit-learn>=1.9.1",
-    "scipy>=1.17.1",
-    "xgboost>=3.2.0",
+    "matplotlib>=3.9",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
 ]

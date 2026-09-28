@@ -1,40 +1,13 @@
-# Python-generated files
 __pycache__/
 *.py[oc]
+.venv/
+.uv-cache/
+.matplotlib-cache/
 build/
 dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-
-# 教材 PDF（2.3 MB，第三方版权材料，不属于本项目产出）
-# 练习出处与第 7 章原文已抄录在 README「一、练习出处」，PDF 本身不入库。
-# 确实想一起版本化的话，删掉下面这行即可。
-4-Python机器学习教程.pdf
-
-# 操作系统杂物
+*.egg-info/
 Thumbs.db
 .DS_Store
 
-# 原始数据 59 MB（第三方采集，仅供学习使用），不入库。
-# 用 `uv run python src/01_download.py` 重新下载即可。
-# 清洗后的建模表（3.8 MB）仍然入库，这样 03~06 不下载也能跑。
+# 原始第三方数据较大；01_download.py 可重新获取。
 data/lianjia_bj_raw.csv
-
-# 第二版原始数据 26 MB（Kaggle 二手房挂牌数据，北京子集），同样不入库。
-# 用 `uv run python src/10_download_v2.py` 重新下载即可（免认证）。
-data/house_v2_raw.csv
-
-# 下载解压的临时目录（zip + 170 MB 全量 CSV）
-data/_dl/
-
-# CatBoost 训练时会在 CWD 生成 catboost_info/（训练日志，不是产出物）
-catboost_info/
-
-# Claude Code 的会话状态：.claude/worktrees/ 下面是**整份仓库的副本**
-# （含 7.5 MB 建模表、全部图表），一旦被 `git add -A` 带进去，
-# 版本库里就会出现第二份完整仓库。会话状态不属于本项目产出，不入库。
-.claude/
-

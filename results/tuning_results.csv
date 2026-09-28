@@ -1,4 +1,0 @@
-﻿搜索对象,最优参数,调参前CV_R2,调参后CV_R2,净提升
-Ridge.alpha,alpha=0.177828,0.678,0.678,0.0
-Ridge.多项式次数,"alpha=3.16228, degree=3",0.678,0.7017,0.0237
-KNN.n_neighbors,n_neighbors=8,0.6043,0.6093,0.005

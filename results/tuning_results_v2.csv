@@ -1,3 +1,0 @@
-﻿模型,调参前_GroupKFold,调参后_GroupKFold,调参前_KFold,调参后_KFold,净提升,最优参数,候选数,耗时秒
-LightGBM,0.8111781119726805,0.8119656276561216,0.8539700816590734,0.8598277720659724,0.0007875156834410424,"num_leaves=63, n_estimators=1000, min_child_samples=20, learning_rate=0.02",24,375.5
-直方图梯度提升 HistGBR,0.8134568688110628,0.8130398071476626,0.8536601690895773,0.8601869766649649,-0.0004170616634002755,"min_samples_leaf=5, max_leaf_nodes=63, max_iter=1000, learning_rate=0.02, l2_regularization=1.0",24,83.0
